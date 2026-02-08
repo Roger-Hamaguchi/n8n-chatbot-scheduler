@@ -1,0 +1,381 @@
+{
+  "name": "/api/v1/agendamento [PUT]",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "PUT",
+        "path": "/api/v1/agendamento",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3dbf3079-3ca0-4937-9d18-f758998b366f",
+      "name": "Webhook",
+      "webhookId": "5943e00f-d1c1-4134-a483-500fb024b2bc"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "84930a9f-59a9-4c21-8d81-2264fa84a41c",
+              "name": "appointment_id",
+              "value": "={{ $json.body.appointment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "8b0b84f3-60be-428b-9aca-ad2040e0de68",
+              "name": "datetime_text",
+              "value": "={{ $json.body.datetime_text }}",
+              "type": "string"
+            },
+            {
+              "id": "de52f99e-31df-4593-9937-e28e4d09f553",
+              "name": "datetime_hint",
+              "value": "={{ $json.body.datetime_hint }}",
+              "type": "string"
+            },
+            {
+              "id": "a5d593eb-3a1d-43e7-864a-7876f0851f9e",
+              "name": "description",
+              "value": "={{ $json.body.description }}",
+              "type": "string"
+            },
+            {
+              "id": "029e1370-9d53-46c6-ba4e-881b0f2c1c5b",
+              "name": "title",
+              "value": "={{ $json.body.title }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "97e102c6-97e6-46bb-a043-de7e3341ed83",
+      "name": "Normalizar"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list",
+          "cachedResultName": "appointments"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "id",
+              "value": "={{ $json.appointment_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        416,
+        0
+      ],
+      "id": "877bcf95-5d45-4ffa-8f66-280f203c9b5e",
+      "name": "Select agendamento",
+      "credentials": {
+        "postgres": {
+          "id": "KgoCf6R9p3ug2Zek",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "f50c2645-a872-468f-9b63-1ba460909384",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// -------------------- FORMAT DATE (America/Sao_Paulo) --------------------\nfunction formatPtBrFromISO(iso) {\n  if (!iso) return null;\n\n  const d = new Date(iso);\n  if (Number.isNaN(d.getTime())) return null;\n\n  const formatter = new Intl.DateTimeFormat(\"pt-BR\", {\n    timeZone: \"America/Sao_Paulo\",\n    day: \"2-digit\",\n    month: \"2-digit\",\n    year: \"numeric\",\n    hour: \"2-digit\",\n    minute: \"2-digit\",\n    hour12: false,\n  });\n\n  // Ex: \"13/02/2026 13:00\"\n  return formatter.format(d).replace(\",\", \"\");\n}\n\n// -------------------- BEFORE / AFTER --------------------\n\n// BEFORE → apenas para fallback de título\nconst before = $items(\"Select agendamento\")[0]?.json ?? {};\n\n// AFTER → FONTE DE VERDADE (resultado do UPDATE)\nconst after = $items(\"Update agendamento\")[0]?.json ?? {};\n\n// índice selecionado (vem do Definir ação / Switch)\nconst idx =\n  $json?.selected_index ??\n  $json?.index ??\n  null;\n\n// campos finais\nconst title = after.title ?? before.title ?? \"agendamento\";\nconst when = formatPtBrFromISO(after.scheduled_for);\n\n// monta linha final\nconst line =\n  `${idx ? idx + \") \" : \"\"}${title}` +\n  (when ? ` — ${when}` : \"\");\n\n// -------------------- OUTPUT --------------------\nreturn [\n  {\n    json: {\n      reply: `Alteração realizada.\\n\\n${line}`,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "1aee5300-41c4-44aa-9d1f-19a80ce1ebdf",
+      "name": "Reply"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Code node: MERGE + preparar payload para UPDATE (appointments)\n * - current: vem do node \"Select agendamento\"\n * - incoming: vem do node \"Normalizar\"\n * - PATCH semantics: null/undefined/\"\" NÃO sobrescrevem\n *\n * Suporta:\n * - datetime_text: \"dd/mm/aaaa hh:mm\" (completo) -> converte para ISO UTC\n * - datetime_hint:\n *    - hora: \"18h\", \"18:30\", \"18h30\" -> altera só a hora, mantém a data\n *    - data: \"13/02\" ou \"13/02/2026\" -> altera só a data, mantém a hora\n *    - data+hora: \"13/02 18h\" (simples) -> altera ambos\n *\n * Assunção v1: fuso fixo America/Sao_Paulo = -03:00 (sem DST)\n */\n\n// ---------- helpers ----------\nconst isFilled = (v) =>\n  v !== null && v !== undefined && !(typeof v === \"string\" && v.trim() === \"\");\n\nfunction toStr(v) {\n  return String(v ?? \"\").trim();\n}\n\n// ---- parse hora: \"18h\", \"18\", \"18:30\", \"18h30\" ----\nfunction parseTimeHint(hintRaw) {\n  if (!isFilled(hintRaw)) return null;\n  const hint = toStr(hintRaw).toLowerCase();\n\n  // 18:30, 18h30, 18h 30, 18:30h\n  let m = hint.match(/\\b([01]?\\d|2[0-3])\\s*(?:h|:)\\s*([0-5]\\d)\\b/);\n  if (m) return { hh: Number(m[1]), min: Number(m[2]) };\n\n  // 18h\n  m = hint.match(/\\b([01]?\\d|2[0-3])\\s*h\\b/);\n  if (m) return { hh: Number(m[1]), min: 0 };\n\n  // \"18\" sozinho (opcional; se quiser ser mais conservador, remova)\n  m = hint.match(/^\\s*([01]?\\d|2[0-3])\\s*$/);\n  if (m) return { hh: Number(m[1]), min: 0 };\n\n  return null;\n}\n\n// ---- parse data: \"13/02\" ou \"13/02/2026\" ----\nfunction parseDateHint(hintRaw) {\n  if (!isFilled(hintRaw)) return null;\n  const hint = toStr(hintRaw);\n\n  // dd/mm ou dd/mm/yyyy\n  const m = hint.match(/\\b(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?\\b/);\n  if (!m) return null;\n\n  const dd = Number(m[1]);\n  const mm = Number(m[2]);\n  let yyyy = m[3] ? Number(m[3]) : null;\n\n  if (Number.isNaN(dd) || Number.isNaN(mm)) return null;\n  if (dd < 1 || dd > 31) return null;\n  if (mm < 1 || mm > 12) return null;\n\n  if (yyyy !== null) {\n    if (Number.isNaN(yyyy)) return null;\n    if (yyyy < 100) yyyy = 2000 + yyyy; // 26 -> 2026\n    if (yyyy < 1970 || yyyy > 2100) return null;\n  }\n\n  return { dd, mm, yyyy }; // yyyy pode ser null (usa ano atual)\n}\n\n// ---- parse datetime_text: \"dd/mm/aaaa hh:mm\" ----\nfunction parseDatetimeText(datetimeTextRaw) {\n  if (!isFilled(datetimeTextRaw)) return null;\n  const s = toStr(datetimeTextRaw);\n\n  const m = s.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})\\s+(\\d{2}):(\\d{2})$/);\n  if (!m) return null;\n\n  const dd = Number(m[1]);\n  const mm = Number(m[2]);\n  const yyyy = Number(m[3]);\n  const hh = Number(m[4]);\n  const min = Number(m[5]);\n\n  if (mm < 1 || mm > 12) return null;\n  if (dd < 1 || dd > 31) return null;\n  if (hh < 0 || hh > 23) return null;\n  if (min < 0 || min > 59) return null;\n\n  return { dd, mm, yyyy, hh, min };\n}\n\n// ---- util: pegar componentes \"locais -03\" a partir de um ISO UTC ----\nfunction utcIsoToLocalPartsMinus3(isoUtc) {\n  const d = new Date(isoUtc);\n  if (Number.isNaN(d.getTime())) return null;\n\n  const localMs = d.getTime() - 3 * 60 * 60 * 1000;\n  const local = new Date(localMs);\n\n  return {\n    yyyy: local.getUTCFullYear(),\n    mm: local.getUTCMonth() + 1,\n    dd: local.getUTCDate(),\n    hh: local.getUTCHours(),\n    min: local.getUTCMinutes(),\n  };\n}\n\n// ---- util: montar ISO UTC a partir de componentes \"locais -03\" ----\nfunction localMinus3PartsToUtcIso({ yyyy, mm, dd, hh, min }) {\n  // cria como se fosse UTC, mas representando \"local -03\"\n  const local = new Date(Date.UTC(yyyy, mm - 1, dd, hh, min, 0, 0));\n  const utcMs = local.getTime() + 3 * 60 * 60 * 1000;\n  return new Date(utcMs).toISOString();\n}\n\n// ---------- INPUTS ----------\nconst current = $items(\"Select agendamento\")[0]?.json;\nif (!current) throw new Error('SELECT vazio: \"Select agendamento\" não retornou registro.');\n\nconst incoming = $items(\"Normalizar\")[0]?.json ?? {};\n\nif (!isFilled(incoming.appointment_id)) {\n  throw new Error('Payload inválido: \"appointment_id\" ausente no Normalizar.');\n}\nif (incoming.appointment_id !== current.id) {\n  throw new Error(\"Inconsistência: appointment_id do Normalizar não bate com id do SELECT.\");\n}\n\n// ---------- MERGE (PATCH semantics) ----------\nconst merged = { ...current };\n\n// Campos diretos (PATCH)\nconst DIRECT_FIELDS = [\"title\", \"description\", \"status\"];\nfor (const f of DIRECT_FIELDS) {\n  if (isFilled(incoming[f])) merged[f] = toStr(incoming[f]);\n}\n\n// ---------- DATETIME: prioridade datetime_text > datetime_hint ----------\nconst currentLocal = utcIsoToLocalPartsMinus3(current.scheduled_for);\nif (!currentLocal) throw new Error(\"scheduled_for atual inválido no banco.\");\n\n// 1) datetime_text completo (dd/mm/aaaa hh:mm)\nif (isFilled(incoming.datetime_text)) {\n  const dt = parseDatetimeText(incoming.datetime_text);\n  if (!dt) {\n    throw new Error(`datetime_text inválido (esperado \"dd/mm/aaaa hh:mm\"): \"${incoming.datetime_text}\"`);\n  }\n  merged.scheduled_for = localMinus3PartsToUtcIso(dt);\n} else if (isFilled(incoming.datetime_hint)) {\n  // 2) datetime_hint pode ser hora, data ou ambos\n  const hint = toStr(incoming.datetime_hint);\n\n  const datePart = parseDateHint(hint);\n  const timePart = parseTimeHint(hint);\n\n  // Se vier data mas sem ano, usa o ano do agendamento atual (ou ano atual se preferir)\n  let yyyy = currentLocal.yyyy;\n  let mm = currentLocal.mm;\n  let dd = currentLocal.dd;\n\n  if (datePart) {\n    dd = datePart.dd;\n    mm = datePart.mm;\n    if (datePart.yyyy !== null) yyyy = datePart.yyyy;\n  }\n\n  let hh = currentLocal.hh;\n  let min = currentLocal.min;\n\n  if (timePart) {\n    hh = timePart.hh;\n    min = timePart.min;\n  }\n\n  // Regra: precisa ter pelo menos data OU hora reconhecível\n  if (!datePart && !timePart) {\n    throw new Error(`datetime_hint inválido: \"${incoming.datetime_hint}\"`);\n  }\n\n  merged.scheduled_for = localMinus3PartsToUtcIso({ yyyy, mm, dd, hh, min });\n}\n\n// ---------- LIMPEZA ----------\ndelete merged.created_at;\ndelete merged.updated_at;\n\n// payload final\nconst payload = { ...merged };\n\nreturn [\n  {\n    json: {\n      appointment_id: current.id,\n      payload,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "98046568-45c3-442e-9ff2-65670a420cb0",
+      "name": "Merge de dados"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list",
+          "cachedResultName": "appointments"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.appointment_id }}",
+            "user_id": "={{ $json.payload.user_id }}",
+            "scheduled_for": "={{ $json.payload.scheduled_for }}",
+            "status": "={{ $json.payload.status }}",
+            "updated_at": "={{ $now }}",
+            "title": "={{ $json.payload.title }}",
+            "description": "={{ $json.payload.description }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scheduled_for",
+              "displayName": "scheduled_for",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        832,
+        0
+      ],
+      "id": "e771fd57-a86e-4c74-ad9f-0d2da0a5c6f0",
+      "name": "Update agendamento",
+      "credentials": {
+        "postgres": {
+          "id": "KgoCf6R9p3ug2Zek",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "content-type": "application/json",
+            "user-agent": "axios/1.12.0",
+            "content-length": "168",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "host": "localhost:5678",
+            "connection": "close"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "appointment_id": "a6438e40-8051-4e14-ad55-9879e9a5a8bc",
+            "datetime_text": null,
+            "datetime_hint": "13/02",
+            "title": "aula de karate",
+            "description": null,
+            "source": "chat | api"
+          },
+          "webhookUrl": "http://localhost:5678/webhook/api/v1/agendamento",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Select agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select agendamento": {
+      "main": [
+        [
+          {
+            "node": "Merge de dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge de dados": {
+      "main": [
+        [
+          {
+            "node": "Update agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update agendamento": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "44ba391d-ca60-48e4-8468-43b9820c852a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2242d851dc1cc955076f269156dad02e32d76bd72bd325d8e12fdcc06350a6c8"
+  },
+  "id": "KGcbWvKieRtlp86cs8g93",
+  "tags": []
+}

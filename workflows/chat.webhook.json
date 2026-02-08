@@ -1,0 +1,2015 @@
+{
+  "name": "/chat",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -4112,
+        816
+      ],
+      "id": "9be9e76e-2b07-4226-a381-a38d453f7c31",
+      "name": "Webhook",
+      "webhookId": "edd1b682-14f7-48b1-9e60-2de52530f7d1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawBody = $json.body ?? $json;\n\n// Se vier array (caso do webhook), pega o primeiro item\nconst body = Array.isArray(rawBody) ? rawBody[0] : rawBody;\n\nconst name = String(body?.name || \"\").trim();\nconst email = String(body?.email || \"\").trim().toLowerCase();\nconst message = String(body?.message || \"\").trim();\n\nif (!name) throw new Error(\"name é obrigatório\");\nif (!email || !email.includes(\"@\")) throw new Error(\"email inválido\");\nif (!message) throw new Error(\"message é obrigatória\");\n\nreturn [\n  {\n    name,\n    email,\n    message,\n    now: new Date().toISOString()\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3904,
+        816
+      ],
+      "id": "2358616d-33b8-40f0-9b2b-e04ae732f993",
+      "name": "Normalizar e validar"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "818c13eb-e482-4758-b8d2-4a7212ad0786",
+              "leftValue": "={{ $('Select user').item.json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3488,
+        816
+      ],
+      "id": "f2f1aa17-850e-4ddd-9ba9-4cc348f34ad9",
+      "name": "Usuario existe?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d13605b9-9771-4c3e-8d4f-353bad7a1143",
+              "name": "=reply",
+              "value": "=Você está com o recebimento de mensagens bloqueado. Caso queira voltar a falar comigo, aperte o botão \"Desbloquear\" no painel de gerenciamento.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2608,
+        672
+      ],
+      "id": "136abe73-4d76-4608-9173-70ec178006df",
+      "name": "Return - bloqueio"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -3040,
+        816
+      ],
+      "id": "60423cc8-d5ad-4dc9-899d-bbcd1616ffdb",
+      "name": "Merge usuario"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fe18cca4-2713-401e-a5a5-09301c68fff7",
+              "leftValue": "={{ $json.is_blocked }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2864,
+        816
+      ],
+      "id": "09bbf4cc-1edf-439a-928c-98ddd870a454",
+      "name": "Usuario bloqueado?"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1040,
+        1072
+      ],
+      "id": "0ab63c8b-db91-4d07-b21b-ef7a29282fb5",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "936c756f-d202-4977-be59-a8857acab38d",
+              "name": "reply",
+              "value": "={{ $('Merge').item.json.reply }}",
+              "type": "string"
+            },
+            {
+              "id": "c327dfa9-acc7-426f-afe0-0ab10f8bd4a2",
+              "name": "user_id",
+              "value": "={{ $('Merge usuario').item.json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        1072
+      ],
+      "id": "7a6c9f4a-acfd-4921-ab50-74e24403430a",
+      "name": "Set reply"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -2400,
+        672
+      ],
+      "id": "75469c43-3964-49c2-970b-7481af9a9b23",
+      "name": "Respond to Webhook - bloqueio"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "create_appointment_draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e3a3820a-0f59-49ef-823f-93bdf8e1f4a1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "create_appointment_draft"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a10600cc-b00b-4a2c-a6c6-288a2e1737f8",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "create_appointment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "create_appointment"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8f8eaf81-6ec6-42fe-9ec1-f50af14d48b6",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_context",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_context"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a245a867-d8b5-4224-9fc0-50bbf911412c",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_select",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_select"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b4cf0018-0794-4e26-bcf7-7be088c70c51",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_update_context",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_update_context"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "32302a28-0e3b-4617-9032-192f34878018",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_action_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_action_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "aed82946-04ff-4d7a-be28-f5cb771a538e",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_action_delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_action_delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "825b69dc-86c5-483e-acca-60b805d60e14",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_update_confirmation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_update_confirmation"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fb4d669e-64c4-4b25-bf69-59bd08fa14f3",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_update_execute",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_update_execute"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8264d7f7-c6d9-48f5-8739-11072553b8c6",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_delete_confirmation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_delete_confirmation"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0c1c7955-088b-4a1a-87db-c33d3385b174",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "appointment_delete_execute",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_delete_execute"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d4481ea4-e8c7-4b54-9689-759a46861317",
+                    "leftValue": "={{ $('Parser').item.json.intent }}",
+                    "rightValue": "block_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "block_user"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "chat"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        784
+      ],
+      "id": "ca1730be-d03b-4de1-b0ac-1c9de7f15afb",
+      "name": "Switch intent"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointment_drafts",
+          "mode": "list",
+          "cachedResultName": "appointment_drafts"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "user_id",
+              "value": "={{ $('Merge usuario').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2192,
+        944
+      ],
+      "id": "bfd26346-87e6-41cb-87ad-426a869ee0ce",
+      "name": "Select draft",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list",
+          "cachedResultName": "users"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "email",
+              "value": "={{ $('Normalizar e validar').item.json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3696,
+        816
+      ],
+      "id": "f9753953-9de2-4355-b27d-655a98400561",
+      "name": "Select user",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list",
+          "cachedResultName": "users"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_blocked": false,
+            "name": "={{ $('Normalizar e validar').item.json.name }}",
+            "email": "={{ $('Normalizar e validar').item.json.email }}",
+            "updated_at": "={{ $now }}",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_blocked",
+              "displayName": "is_blocked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3264,
+        944
+      ],
+      "id": "fe6f00a0-458e-42c4-b71e-7030e7f845a5",
+      "name": "Insert user",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8ff5b9a4-8018-4605-9f59-fef0eefe37b1",
+              "leftValue": "={{ $('Select draft').item.json.payload }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2000,
+        944
+      ],
+      "id": "41ec62ec-fd7b-4a00-bd09-d78910bf26fa",
+      "name": "Existe rascunho?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/api/v1/rascunho-agendamento",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "value": "={{ $('Merge usuario').item.json.id }}"
+            },
+            {
+              "name": "datetime_iso",
+              "value": "={{ $('Parser').item.json.params.datetime_text }}"
+            },
+            {
+              "name": "title",
+              "value": "={{ $('Parser').item.json.params.title }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $('Parser').item.json.params.description }}"
+            },
+            {
+              "name": "source",
+              "value": "chat | api"
+            },
+            {
+              "name": "message",
+              "value": "={{ $('Parser').item.json.reply }}"
+            },
+            {
+              "name": "datetime_hint",
+              "value": "={{ $json.params.datetime_hint }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "367328cc-df7d-41a2-b01b-b8269c8ab0ce",
+      "name": "HTTP rascunho agendamento"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/api/v1/agendamento",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_id ",
+              "value": "={{ $json.user_id }}"
+            },
+            {
+              "name": "title ",
+              "value": "={{ $json.payload.title }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $json.payload.description }}"
+            },
+            {
+              "name": "=scheduled_for",
+              "value": "={{ $json.payload.scheduled_for }}"
+            },
+            {
+              "name": "confirmar",
+              "value": "={{ $('Normalizar e validar').item.json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        192
+      ],
+      "id": "7818a846-4270-4767-86f2-5b82df4d344a",
+      "name": "HTTP agendamento"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Normalizar e validar').item.json.message }}",
+        "options": {
+          "systemMessage": "=Você é um classificador de intenção para um chatbot.\n\nSua função:\n1) Identificar a intenção principal da mensagem do usuário.\n2) Extrair parâmetros relevantes quando existirem.\n3) Sugerir uma resposta curta e educada para o usuário.\n\n# REGRAS OBRIGATÓRIAS:\n- Responda SOMENTE em JSON válido.\n- NÃO execute ações.\n- NÃO invente dados.\n- NÃO explique seu raciocínio.\n- NÃO use markdown.\n- NÃO inclua texto fora do JSON.\n\n# INTENÇÕES SUPORTADAS:\n- chat\n- appointment_context\n- appointment_select\n- appointment_action_update\n- appointment_action_delete\n- appointment_update_context\n- appointment_update_confirmation\n- appointment_delete_confirmation\n- appointment_update_execute\n- appointment_delete_execute\n- create_appointment_draft\n- create_appointment\n- block_user\n\n# PARÂMETROS:\n- datetime_text: data e hora completas no formato exato \"dd/mm/aaaa hh:mm\" ou null.\n- datetime_hint: texto livre de data/hora parcial para UPDATE (ex.: \"14h\", \"dia 16/03\", \"amanhã 9h\") ou null.\n- title: texto curto ou null.\n- description: texto adicional extraído da mensagem ou null.\n- appointment_id: uuid explícito ou null.\n- index: número do item na lista (ex.: \"2\" em \"item 2\") ou null.\n- action: null.\n\n# CONTEXTO (MEMÓRIA / ÚLTIMAS MENSAGENS):\n- Use a janela de memória (últimas mensagens) para entender se há um agendamento \"em foco\".\n- Considere que há um agendamento em foco quando, nas últimas mensagens do assistente, existir algo como:\n  - \"Você se refere a:\"\n  - \"Você quer atualizar ou cancelar?\"\n- Quando houver agendamento em foco, NÃO aplique a REGRA DE PRIORIDADE PARA AGENDAMENTOS EXISTENTES para voltar ao appointment_context.\n\n# PROPAGAÇÃO DO FOCO (OBRIGATÓRIO):\n- Se houver um agendamento em foco pela memória, você DEVE preencher params.index com o número do item em foco, mesmo que o usuário não repita esse número.\n- Extraia esse número do texto recente do assistente.\n- Se não for possível identificar o número com segurança, deixe params.index = null.\n- params.appointment_id só pode ser preenchido se um UUID aparecer explicitamente no contexto.\n- Isso NÃO é inventar dados: é reutilizar o contexto recente.\n\n# REGRA DE PRIORIDADE PARA AGENDAMENTOS EXISTENTES (CRÍTICA):\n- Se o usuário mencionar atualizar, alterar, remarcar, mudar, cancelar, apagar ou excluir e sugerir um compromisso existente, use intent=\"appointment_context\".\n- NÃO use chat nem intents de action nesse caso.\n- Extraia o nome do compromisso em title quando existir.\n- A reply deve pedir autorização para listar os agendamentos e solicitar escolha por número.\n- EXCEÇÃO: se houver um agendamento em foco, NÃO use appointment_context.\n\n# REGRAS PARA CONTEXTO DE AGENDAMENTOS:\n- Use intent=\"appointment_context\" quando o usuário pedir lista ou quando a regra de prioridade disparar.\n- Reply padrão:\n  \"Para poder te ajudar, vou te passar a lista dos seus agendamentos pendentes para que você possa me dizer qual deles você se refere, pode ser?\"\n\n# REGRAS PARA SELEÇÃO DE AGENDAMENTO:\n- Use intent=\"appointment_select\" quando o usuário indicar um item específico.\n- Exemplos: \"1\", \"2\", \"item 2\", \"o primeiro\".\n- Extraia index quando existir.\n- Se mencionar o compromisso pelo nome, extraia em title.\n- A reply deve perguntar se ele quer atualizar ou cancelar.\n\n# REGRAS PARA AÇÕES EM AGENDAMENTO:\n- Use intent=\"appointment_action_update\" quando, com agendamento em foco, o usuário disser que quer atualizar.\n- Use intent=\"appointment_action_delete\" quando, com agendamento em foco, o usuário disser que quer cancelar.\n- Se a ação vier junto com número ou título, use appointment_select.\n- Se o agendamento ainda não estiver claro, NÃO use intents de action.\n\n# REGRAS PARA UPDATE (COLETA):\n- Use intent=\"appointment_update_context\" quando:\n  - houver agendamento em foco\n  - houver intenção de alterar\n  - nenhum valor concreto foi informado\n- Valor concreto significa pelo menos um:\n  - datetime_text\n  - datetime_hint\n  - title\n  - description\n- A reply deve pedir qual novo valor será informado.\n\n# REGRAS PARA CONFIRMAÇÃO DE UPDATE:\n- Use intent=\"appointment_update_confirmation\" quando:\n  - houver agendamento em foco\n  - pelo menos um valor concreto foi informado\n- A reply deve resumir a alteração e terminar com:\n  \"Responda apenas com Sim ou Não.\"\n\n# REGRAS PARA CONFIRMAÇÃO DE DELETE:\n- Use intent=\"appointment_delete_confirmation\" quando:\n  - houver agendamento em foco\n  - o usuário pedir cancelamento\n- A reply deve terminar com:\n  \"Responda apenas com Sim ou Não.\"\n\n# REGRAS PARA EXECUÇÃO (UPDATE / DELETE):\n- Use intent=\"appointment_update_execute\" quando o usuário responder \"Sim\" após confirmação de update.\n- Use intent=\"appointment_delete_execute\" quando o usuário responder \"Sim\" após confirmação de delete.\n- Se responder \"Não\", use intent=\"chat\" com reply curta informando que nada será feito.\n\n# REGRAS PARA CRIAÇÃO DE AGENDAMENTO:\n- Existe um campo de contexto chamado has_draft com valor \"true\" ou \"false\".\n\n## Quando has_draft = \"true\":\n- Se o usuário responder confirmando ou negando (\"sim\", \"ok\", \"confirmo\", \"não\", \"cancela\"):\n  - Use intent=\"create_appointment\"\n  - NÃO use create_appointment_draft\n  - Reply curta, neutra (ex.: \"Certo.\").\n\n## Quando has_draft = \"false\":\n- Só use intent=\"create_appointment_draft\" quando:\n  - datetime_text != null\n  - title != null\n- A reply deve resumir os dados e pedir confirmação, terminando com:\n  \"Responda apenas com Sim ou Não.\"\n- NÃO diga que o agendamento foi criado ou confirmado.\n\n# REGRAS CRÍTICAS PARA datetime_text:\n- Hoje é {{ $now.setZone('America/Sao_Paulo').format('DD/MM/YYYY') }}.\n- datetime_text deve ser:\n  - null\n  - ou string completa no formato \"dd/mm/aaaa hh:mm\"\n- Nunca retorne datas parciais em datetime_text.\n- Se faltar horário, datetime_text deve ser null.\n\n# BLOQUEIO DO USUÁRIO:\n- Se o usuário digitar \"bloquear\" ou variação direta, use intent=\"block_user\".\n- A reply deve ser curta e neutra (ex.: \"Certo.\").\n- Não explique consequências.\n\n# FORMATO DE SAÍDA OBRIGATÓRIO:\n{\n  \"intent\": \"string\",\n  \"confidence\": number,\n  \"params\": {\n    \"appointment_id\": null,\n    \"datetime_text\": null,\n    \"datetime_hint\": null,\n    \"title\": null,\n    \"description\": null,\n    \"index\": null,\n    \"action\": null\n  },\n  \"reply\": \"string\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1344,
+        960
+      ],
+      "id": "0d85c337-0972-4695-929f-2e610a825cc9",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1472,
+        1168
+      ],
+      "id": "cad91e2c-a1de-4c07-85bb-e718738782f0",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "GV6SMZp5B58HVVHi",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Merge usuario').item.json.id }}_buf"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -1328,
+        1168
+      ],
+      "id": "6a5d6767-2625-452b-8cc5-c0c067741310",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Captura a string de saída do AI Agent\nconst rawOutput = $json.output;\n\ntry {\n  // Converte a string de texto para um objeto JSON real\n  const parsedOutput = JSON.parse(rawOutput);\n\n  // Retorna o objeto formatado para o n8n\n  return [{\n    ...parsedOutput\n  }];\n} catch (error) {\n  // Caso a IA falhe e não envie um JSON válido, retorna o erro e o texto original\n  return [{\n    ok: false,\n    error: \"Falha ao processar JSON\",\n    original_text: rawOutput\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        960
+      ],
+      "id": "ec6bf011-8f1c-4427-9972-005f47583299",
+      "name": "Parser"
+    },
+    {
+      "parameters": {
+        "numberInputs": 6
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        1008
+      ],
+      "id": "e0942901-8267-4c1d-ae6b-cbdc323e1cca",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/api/v1/agendamentos",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "value": "={{ $('Merge usuario').item.json.id }}"
+            },
+            {
+              "name": "source",
+              "value": "chat | api"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        368
+      ],
+      "id": "7d174845-db1a-46fc-8f60-136031379abe",
+      "name": "HTTP buscar agendamentos"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/api/v1/agendamentos",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "value": "={{ $('Merge usuario').item.json.id }}"
+            },
+            {
+              "name": "source",
+              "value": "chat | api"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -608,
+        848
+      ],
+      "id": "e9bfe15c-ff9d-4abd-99c2-1ad84f4c4407",
+      "name": "HTTP alterar agendamentos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// -------------------- CONFIG (nomes de nodes como string literal) --------------------\nconst NORMALIZE_NODE_NAME = \"Normalizar e validar\";\nconst LLM_NODE_NAME = \"Parser\"; // <- IMPORTANTE: o Parser (já com JSON parseado)\n\n// -------------------- HELPERS --------------------\nfunction normalize(s) {\n  return String(s || \"\")\n    .trim()\n    .toLowerCase()\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\");\n}\n\nfunction toInt(v) {\n  const n = parseInt(String(v ?? \"\").trim(), 10);\n  return Number.isFinite(n) ? n : null;\n}\n\nfunction extractIndexFromText(text) {\n  const t = normalize(text);\n\n  // \"item 2\", \"numero 2\", \"número 2\"\n  let m = t.match(/\\b(item|numero|n[uú]mero)\\s*(\\d+)\\b/);\n  if (m) return toInt(m[2]);\n\n  // \"2\"\n  m = t.match(/^\\s*(\\d+)\\s*$/);\n  if (m) return toInt(m[1]);\n\n  // \"o primeiro\", \"o segundo\" etc (simples)\n  if (t.includes(\"primeiro\")) return 1;\n  if (t.includes(\"segundo\")) return 2;\n  if (t.includes(\"terceiro\")) return 3;\n\n  return null;\n}\n\nfunction detectActionFromText(text) {\n  const t = normalize(text);\n\n  if (\n    t.includes(\"cancel\") ||\n    t.includes(\"apagar\") ||\n    t.includes(\"excluir\") ||\n    t.includes(\"deletar\") ||\n    t.includes(\"remover\")\n  ) return \"delete\";\n\n  if (\n    t.includes(\"atualiz\") ||\n    t.includes(\"alter\") ||\n    t.includes(\"remarc\") ||\n    t.includes(\"mudar\") ||\n    t.includes(\"trocar\") ||\n    t.includes(\"editar\")\n  ) return \"update\";\n\n  if (\n    t.includes(\"detalh\") ||\n    t.includes(\"mostrar\") ||\n    t.includes(\"ver\") ||\n    t.includes(\"quando\") ||\n    t.includes(\"qual\")\n  ) return \"details\";\n\n  return \"none\";\n}\n\nfunction inferAction(userMessage, llmIntent) {\n  // 1) texto do usuário (fonte principal)\n  const fromText = detectActionFromText(userMessage);\n  if (fromText !== \"none\") return fromText;\n\n  // 2) fallback pelo intent da LLM (quando ela já classificou como ação)\n  const i = String(llmIntent || \"\").trim();\n  if (i === \"appointment_action_update\") return \"update\";\n  if (i === \"appointment_action_delete\") return \"delete\";\n\n  return \"none\";\n}\n\nfunction formatPtBrFromISO(iso) {\n  const d = new Date(iso);\n  if (Number.isNaN(d.getTime())) return null;\n\n  // Ajuste manual para America/Sao_Paulo (-03)\n  const ms = d.getTime() - (3 * 60 * 60 * 1000);\n  const local = new Date(ms);\n\n  const dd = String(local.getUTCDate()).padStart(2, \"0\");\n  const mm = String(local.getUTCMonth() + 1).padStart(2, \"0\");\n  const yyyy = local.getUTCFullYear();\n  const hh = String(local.getUTCHours()).padStart(2, \"0\");\n  const min = String(local.getUTCMinutes()).padStart(2, \"0\");\n\n  return `${dd}/${mm}/${yyyy}, ${hh}:${min}`;\n}\n\nfunction buildItemLine(index, appt) {\n  const when = formatPtBrFromISO(appt.scheduled_for);\n  return `${index}) ${appt.title} — ${when}`;\n}\n\nfunction isNonEmpty(v) {\n  return v !== null && v !== undefined && String(v).trim() !== \"\";\n}\n\nfunction extractTimeOnly(text) {\n  const t = normalize(text);\n\n  let m = t.match(/\\b([01]?\\d|2[0-3])[:h]\\s*([0-5]\\d)\\b/);\n  if (m) return { hh: +m[1], min: +m[2] };\n\n  m = t.match(/\\b([01]?\\d|2[0-3])\\s*h\\b/);\n  if (m) return { hh: +m[1], min: 0 };\n\n  return null;\n}\n\nfunction extractDateOnly(text) {\n  const t = normalize(text);\n\n  // aceita \"13/02\" ou \"13/02/2026\" (também funciona dentro de \"dia 13/02\")\n  let m = t.match(/\\b(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{4}))?\\b/);\n  if (!m) return null;\n\n  const dd = +m[1];\n  const mm = +m[2];\n  const yyyy = m[3] ? +m[3] : null;\n\n  if (dd < 1 || dd > 31) return null;\n  if (mm < 1 || mm > 12) return null;\n\n  return { dd, mm, yyyy };\n}\n\nfunction buildISOWithSameDateDifferentTime(originalISO, hh, min) {\n  const d = new Date(originalISO);\n  if (Number.isNaN(d.getTime())) return null;\n\n  const ms = d.getTime() - (3 * 60 * 60 * 1000);\n  const local = new Date(ms);\n\n  local.setUTCHours(hh, min, 0, 0);\n\n  const backMs = local.getTime() + (3 * 60 * 60 * 1000);\n  return new Date(backMs).toISOString();\n}\n\nfunction buildISOWithSameTimeDifferentDate(originalISO, dd, mm, yyyyOrNull) {\n  const d = new Date(originalISO);\n  if (Number.isNaN(d.getTime())) return null;\n\n  // \"local\" em UTC, compensando -03 (mesma lógica do seu código)\n  const ms = d.getTime() - (3 * 60 * 60 * 1000);\n  const local = new Date(ms);\n\n  const originalYear = local.getUTCFullYear();\n  const year = yyyyOrNull ?? originalYear;\n\n  // mantém hora/minuto atuais, muda apenas a data\n  const hh = local.getUTCHours();\n  const min = local.getUTCMinutes();\n\n  local.setUTCFullYear(year, mm - 1, dd);\n  local.setUTCHours(hh, min, 0, 0);\n\n  const backMs = local.getTime() + (3 * 60 * 60 * 1000);\n  return new Date(backMs).toISOString();\n}\n\n// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n// REGRA: mensagem do usuário SEMPRE vem do nó \"Normalizar e validar\"\nfunction getUserMessage() {\n  const n = $items(NORMALIZE_NODE_NAME)[0]?.json ?? {};\n  return String(n.message || \"\").trim();\n}\n// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n// -------------------- INPUTS --------------------\nconst read = $json; // saída do HTTP buscar agendamentos\nconst userMessage = getUserMessage();\n\n// LLM output (Parser)\nconst llm = $items(LLM_NODE_NAME)[0]?.json ?? {};\nconst llmIntent = String(llm?.intent || \"\").trim();\nconst llmParams = llm?.params ?? {};\n\nlet index = toInt(llmParams?.index);\nif (!index) index = extractIndexFromText(userMessage);\n\n// -------------------- VALIDAÇÕES --------------------\nif (!read?.ok || !Array.isArray(read.appointments)) {\n  return [{\n    json: {\n      next_intent: \"reply_only\",\n      reply: \"Não consegui acessar seus agendamentos agora. Pode tentar novamente?\",\n    },\n  }];\n}\n\nif (!index) {\n  return [{\n    json: {\n      next_intent: \"reply_only\",\n      reply: \"Qual número do agendamento você quer selecionar? (ex.: 1 ou 2)\",\n    },\n  }];\n}\n\nconst appt = read.appointments.find((a) => toInt(a.index) === index);\n\nif (!appt) {\n  return [{\n    json: {\n      next_intent: \"reply_only\",\n      reply: `Não encontrei o item ${index}. Quer que eu te mostre a lista novamente?`,\n    },\n  }];\n}\n\n// -------------------- EXECUTE: PASSAR PARA O SWITCH --------------------\nif (llmIntent === \"appointment_update_execute\") {\n  return [{\n    json: {\n      next_intent: \"appointment_update_execute\",\n      appointment_id: appt.id,\n      selected_index: index,\n      params: llmParams,\n      reply: llm?.reply || \"Certo. Vou atualizar o agendamento.\",\n    },\n  }];\n}\n\nif (llmIntent === \"appointment_delete_execute\") {\n  return [{\n    json: {\n      next_intent: \"appointment_delete_execute\",\n      appointment_id: appt.id,\n      selected_index: index,\n      params: llmParams,\n      reply: llm?.reply || \"Certo. Vou cancelar o agendamento.\",\n    },\n  }];\n}\n\n// -------------------- CONFIRMAÇÃO DE UPDATE (node monta o antes/depois) --------------------\nif (llmIntent === \"appointment_update_confirmation\") {\n  const patch = {};\n\n  // Campos textuais\n  if (isNonEmpty(llmParams.title)) patch.title = String(llmParams.title).trim();\n  if (isNonEmpty(llmParams.description)) patch.description = String(llmParams.description).trim();\n\n  // Horário OU Data a partir do datetime_hint\n  // - hora: \"18h\", \"14:30\"\n  // - data: \"13/02\" ou \"13/02/2026\" (mantém hora atual)\n  if (isNonEmpty(llmParams.datetime_hint)) {\n    const hint = String(llmParams.datetime_hint);\n\n    // 1) tenta hora\n    const timeOnly = extractTimeOnly(hint);\n    if (timeOnly) {\n      const newISO = buildISOWithSameDateDifferentTime(appt.scheduled_for, timeOnly.hh, timeOnly.min);\n      if (newISO) patch.scheduled_for = newISO;\n    } else {\n      // 2) tenta data\n      const dateOnly = extractDateOnly(hint);\n      if (dateOnly) {\n        const newISO = buildISOWithSameTimeDifferentDate(\n          appt.scheduled_for,\n          dateOnly.dd,\n          dateOnly.mm,\n          dateOnly.yyyy\n        );\n        if (newISO) patch.scheduled_for = newISO;\n      }\n    }\n  }\n\n  const hasPatch =\n    patch.title != null ||\n    patch.description != null ||\n    patch.scheduled_for != null;\n\n  if (!hasPatch) {\n    return [{\n      json: {\n        next_intent: \"reply_only\",\n        appointment_id: appt.id,\n        selected_index: index,\n        reply:\n          \"Entendi que você quer alterar, mas não consegui identificar o que exatamente.\\n\\n\" +\n          'Você pode me dizer um novo horário/data (ex.: \"14h\" ou \"dia 16/03\"), ou um novo título/descrição.',\n      },\n    }];\n  }\n\n  const before = buildItemLine(index, appt);\n\n  // after (preview básico)\n  const afterWhen = patch.scheduled_for\n    ? formatPtBrFromISO(patch.scheduled_for)\n    : formatPtBrFromISO(appt.scheduled_for);\n\n  const afterTitle = patch.title ?? appt.title;\n  const after = `${index}) ${afterTitle} — ${afterWhen}`;\n\n  return [{\n    json: {\n      next_intent: \"create_update_draft\",\n      draft: {\n        kind: \"update\",\n        appointment_id: appt.id,\n        patch,\n        before,\n        after,\n      },\n      reply:\n        \"Você quer alterar:\\n\" +\n        `${before}\\n\\n` +\n        \"Para:\\n\" +\n        `${after}\\n\\n` +\n        \"Responda apenas com Sim ou Não.\",\n    },\n  }];\n}\n\n// -------------------- AÇÃO (menu / delete / update) --------------------\nconst action = inferAction(userMessage, llmIntent);\n\n// Apenas seleção → menu\nif (action === \"none\") {\n  return [{\n    json: {\n      next_intent: \"reply_only\",\n      appointment_id: appt.id,\n      selected_index: index,\n      reply:\n        \"Beleza. Você se refere a:\\n\" +\n        `${buildItemLine(index, appt)}\\n` +\n        \"Você quer atualizar ou cancelar?\",\n    },\n  }];\n}\n\n// Detalhes\nif (action === \"details\") {\n  return [{\n    json: {\n      next_intent: \"reply_only\",\n      appointment_id: appt.id,\n      selected_index: index,\n      reply: `Aqui está o agendamento:\\n${buildItemLine(index, appt)}`,\n    },\n  }];\n}\n\n// Delete → confirmação\nif (action === \"delete\") {\n  const before = buildItemLine(index, appt);\n  return [{\n    json: {\n      next_intent: \"create_delete_draft\",\n      draft: {\n        kind: \"delete\",\n        appointment_id: appt.id,\n        before,\n      },\n      reply:\n        \"Você quer cancelar:\\n\" +\n        `${before}\\n\\n` +\n        \"Responda apenas com Sim ou Não.\",\n    },\n  }];\n}\n\n// Update → não assumir campo\nif (action === \"update\") {\n  return [{\n    json: {\n      next_intent: \"reply_only\",\n      appointment_id: appt.id,\n      selected_index: index,\n      reply:\n        \"O que você quer atualizar neste agendamento?\\n\\n\" +\n        'Você pode me dizer um novo horário/data (ex.: \"14h\" ou \"dia 16/03\"), ou um novo título/descrição.',\n    },\n  }];\n}\n\n// Fallback\nreturn [{\n  json: {\n    next_intent: \"reply_only\",\n    reply: \"Não entendi. Você quer atualizar ou cancelar esse agendamento?\",\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        848
+      ],
+      "id": "c3205939-a39e-4770-a3f1-f9168986f313",
+      "name": "Definir acao"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Definir acao').item.json.next_intent }}",
+                    "rightValue": "appointment_update_execute",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ff89bb64-a281-45ed-99f2-487cd1ac1849"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_update_execute"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "13b0584b-d965-427b-87ea-a42afc2b1e6b",
+                    "leftValue": "={{ $('Definir acao').item.json.next_intent }}",
+                    "rightValue": "appointment_delete_execute",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "appointment_delete_execute"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -256,
+        832
+      ],
+      "id": "5782007f-852d-4eeb-9752-d1e0efa2c3b2",
+      "name": "Switch ações"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://localhost:5678/webhook/api/v1/agendamento",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=appointment_id",
+              "value": "={{ $('Definir acao').item.json.appointment_id }}"
+            },
+            {
+              "name": "=datetime_text",
+              "value": "={{ $('Definir acao').item.json.params.datetime_text }}"
+            },
+            {
+              "name": "=datetime_hint",
+              "value": "={{ $('Definir acao').item.json.params.datetime_hint }}"
+            },
+            {
+              "name": "=title",
+              "value": "={{ $('Definir acao').item.json.params.title }}"
+            },
+            {
+              "name": "=description",
+              "value": "={{ $('Definir acao').item.json.params.description }}"
+            },
+            {
+              "name": "source",
+              "value": "chat | api"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        560
+      ],
+      "id": "2aafd059-0e54-4615-a5c2-327ded532167",
+      "name": "HTTP atualizar agendamento"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "http://localhost:5678/webhook/api/v1/agendamento",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=appointment_id",
+              "value": "={{ $('Definir acao').item.json.appointment_id }}"
+            },
+            {
+              "name": "source",
+              "value": "chat | api"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        752
+      ],
+      "id": "63bd42ba-4b5f-4fe8-a62f-17428c5aabdd",
+      "name": "HTTP deletar agendamento"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        240,
+        832
+      ],
+      "id": "7590aab1-a481-430f-b698-1643d67a5e4c",
+      "name": "Merge acao"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dc8b2c4f-b06b-47e6-bfff-cec084a76e66",
+              "name": "has_draft",
+              "value": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1776,
+        832
+      ],
+      "id": "185d876b-a69f-4126-b23b-a482f405ab6a",
+      "name": "has_draft =true"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dc8b2c4f-b06b-47e6-bfff-cec084a76e66",
+              "name": "has_draft",
+              "value": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1776,
+        1072
+      ],
+      "id": "666dc222-1269-45ef-89e8-faed78579afe",
+      "name": "has_draft =false"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1536,
+        960
+      ],
+      "id": "144702b6-9424-4450-b756-3695604e6197",
+      "name": "Merge has_draft"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/api/v1/desbloqueio",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "value": "={{ $('Merge usuario').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        976
+      ],
+      "id": "0e336cd7-7bfe-4a98-9233-04e5f4b142bb",
+      "name": "HTTP bloquear"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.reminder_state (\n  user_id,\n  last_user_message_at,\n  updated_at\n)\nvalues (\n  $1,\n  now(),\n  now()\n)\non conflict (user_id) do update set\n  last_user_message_at = excluded.last_user_message_at,\n  updated_at = excluded.updated_at\nreturning *;",
+        "options": {
+          "queryReplacement": "={{ $('Merge usuario').item.json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2608,
+        944
+      ],
+      "id": "9cca5aa0-5fb2-48db-9abe-eac036ba94aa",
+      "name": "Reset reminder",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.reminder_state (\n  user_id,\n  last_bot_message_at,\n  reminder_count,\n  is_suppressed,\n  updated_at\n)\nvalues (\n  $1,\n  now(),\n  0,\n  false,\n  now()\n)\non conflict (user_id) do update set\n  last_bot_message_at = excluded.last_bot_message_at,\n  reminder_count = 0,\n  is_suppressed = false,\n  updated_at = excluded.updated_at\nreturning *;",
+        "options": {
+          "queryReplacement": "={{ $('Merge usuario').item.json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1632,
+        1072
+      ],
+      "id": "845d536f-6992-48b4-a7b4-0b242d33c2c6",
+      "name": "Armar reminder",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "messages",
+          "mode": "list",
+          "cachedResultName": "messages"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Merge usuario').item.json.id }}",
+            "direction": "user",
+            "content": "={{ $('Normalizar e validar').item.json.message }}",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "direction",
+              "displayName": "direction",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2400,
+        944
+      ],
+      "id": "6e2d93e8-458b-42f1-afc7-a101610a1b49",
+      "name": "Insert message - user",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "messages",
+          "mode": "list",
+          "cachedResultName": "messages"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Merge usuario').item.json.id }}",
+            "direction": "bot",
+            "content": "={{ $('Set reply').item.json.reply }}",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "direction",
+              "displayName": "direction",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1248,
+        1072
+      ],
+      "id": "79005c9e-1203-4e3b-80aa-ff3e27b2cfaf",
+      "name": "Insert message - bot",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.reminder_state (\n  user_id,\n  last_bot_message_at,\n  updated_at\n)\nvalues (\n  $1,\n  $2,\n  now()\n)\non conflict (user_id)\ndo update set\n  last_bot_message_at = excluded.last_bot_message_at,\n  updated_at = excluded.updated_at;",
+        "options": {
+          "queryReplacement": "={{ $('Merge usuario').item.json.id }}, {{ $json.created_at }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1456,
+        1072
+      ],
+      "id": "f0ef4291-77c1-4ab5-96d1-88aba247c777",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "connection": "close",
+            "content-length": "96",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+            "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Google Chrome\";v=\"144\"",
+            "content-type": "application/json",
+            "sec-ch-ua-mobile": "?0",
+            "accept": "*/*",
+            "origin": "http://localhost:5174",
+            "sec-fetch-site": "same-origin",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+            "referer": "http://localhost:5174/",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7",
+            "cookie": "sidebar:state=true; rl_page_init_referrer=RudderEncrypt%3AU2FsdGVkX19qDSsMOnTNGMoeUPBZA4VZBLKmOTLXX58%3D; rl_page_init_referring_domain=RudderEncrypt%3AU2FsdGVkX1%2Bha30QbPLMe%2F%2BHBClYQuLlVa94RL6ZEPU%3D; rl_anonymous_id=RudderEncrypt%3AU2FsdGVkX1%2BlQ2oFyFIqHFMf3ER5OcN%2FKNTPab2nfuUNhBFhgapWxOQLuJ2NOSZXTaANU5vgXekATXJM6DNwug%3D%3D; rl_user_id=RudderEncrypt%3AU2FsdGVkX1%2BY%2FZYkMMgn04teUNE8Ph5gsqway83opGQ86OIC0yYk%2Fgy2EvoSEELcK0BPEtva3XzPihaXQI3R%2BzC1fmRr%2BkCCMBqOMJJ7r%2BKkJEl4WGyD%2BluQGma5kyN9HqZfV2y6oqJrxhk%2FpACLPR%2BZuyO4RUzOQQLBjTHvPrI%3D; rl_trait=RudderEncrypt%3AU2FsdGVkX1%2BWCZreR7yPqF6qXmtVSKmMi4CO53%2Ff%2FZQ9DBh313tW1vYwtMf47NJKShPgbiCScHiICZOLZBniPFg8vYM8vgAMurm0j4W2D%2BvNgdK2AIhmTGWFQ2DZsP2lm7SW2K8uSBzaOoI%2F381QnJFbUXQRnAy7JxhXYDYeTns%3D; rl_session=RudderEncrypt%3AU2FsdGVkX187Y5%2FfrlQX2RxgC6BHt6p8ZiA0ildY8SGevdqzgjsVuSnGF0gLa2n6MFkvdr2xA11J7P5%2BoYSO9BixnjxwqTgc%2B6%2BCW4zTU3L5EKZhndaPPH2pMlA2JAO5kKdqYs7gXLt1NKzXTiyroQ%3D%3D; ph_phc_4URIAm1uYfJO7j8kWSe0J8lc8IqnstRLS7Jx8NcakHo_posthog=%7B%22%24device_id%22%3A%22019c2bb2-038e-775b-86a3-0f305cbe9b9d%22%2C%22distinct_id%22%3A%222242d851dc1cc955076f269156dad02e32d76bd72bd325d8e12fdcc06350a6c8%23edd8a764-b803-497e-8e48-49db120cae98%22%2C%22%24sesid%22%3A%5B1770263292469%2C%22019c2bb2-0397-75e7-b976-9c4ea072ebce%22%2C1770259612564%5D%2C%22%24epp%22%3Atrue%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22http%3A%2F%2Flocalhost%3A5678%2Fhome%2Fworkflows%22%7D%7D"
+          },
+          "params": {},
+          "query": {},
+          "body": [
+            {
+              "name": "Roger",
+              "email": "rhamaguchi@gmail.com",
+              "message": "agende aula de judo quarta às 15h"
+            }
+          ],
+          "webhookUrl": "http://localhost:5678/webhook/chat",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar e validar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar e validar": {
+      "main": [
+        [
+          {
+            "node": "Select user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usuario existe?": {
+      "main": [
+        [
+          {
+            "node": "Merge usuario",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge usuario": {
+      "main": [
+        [
+          {
+            "node": "Usuario bloqueado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usuario bloqueado?": {
+      "main": [
+        [
+          {
+            "node": "Return - bloqueio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reset reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set reply": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return - bloqueio": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook - bloqueio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch intent": {
+      "main": [
+        [
+          {
+            "node": "HTTP rascunho agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP buscar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP alterar agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP bloquear",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Select draft": {
+      "main": [
+        [
+          {
+            "node": "Existe rascunho?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select user": {
+      "main": [
+        [
+          {
+            "node": "Usuario existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert user": {
+      "main": [
+        [
+          {
+            "node": "Merge usuario",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Existe rascunho?": {
+      "main": [
+        [
+          {
+            "node": "has_draft =true",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "has_draft =false",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP agendamento": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser": {
+      "main": [
+        [
+          {
+            "node": "Switch intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP rascunho agendamento": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Set reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP buscar agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "HTTP alterar agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Definir acao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Definir acao": {
+      "main": [
+        [
+          {
+            "node": "Switch ações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch ações": {
+      "main": [
+        [
+          {
+            "node": "HTTP atualizar agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP deletar agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge acao",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "HTTP atualizar agendamento": {
+      "main": [
+        [
+          {
+            "node": "Merge acao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP deletar agendamento": {
+      "main": [
+        [
+          {
+            "node": "Merge acao",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge acao": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "has_draft =true": {
+      "main": [
+        [
+          {
+            "node": "Merge has_draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "has_draft =false": {
+      "main": [
+        [
+          {
+            "node": "Merge has_draft",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge has_draft": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP bloquear": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Reset reminder": {
+      "main": [
+        [
+          {
+            "node": "Insert message - user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Insert message - bot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert message - user": {
+      "main": [
+        [
+          {
+            "node": "Select draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert message - bot": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "Armar reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "5ab6195b-2fb8-4af1-ac13-86b84ed5f454",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6dbbaa0426b3cc8e214d0c256d61a8fe90469867a2e968d3adf53877f3e88124"
+  },
+  "id": "Hl_2Fy29wwKablP1YLZnz",
+  "tags": []
+}

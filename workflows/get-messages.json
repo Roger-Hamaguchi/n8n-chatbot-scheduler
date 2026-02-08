@@ -1,0 +1,300 @@
+{
+  "name": "Get messages",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "get-messages",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c8fe49c8-5ffe-40b5-b156-b0e0488e8225",
+      "name": "Webhook",
+      "webhookId": "2c2b629e-9388-4faf-8881-c3c405e4ff3a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "75f3c2ea-ed89-4e5b-8c64-a703c5a09e98",
+              "name": "user_id",
+              "value": "={{ $json.query.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "e0f75d4b-a7d0-45f1-8c8b-00c46341a03a",
+              "name": "after_ts",
+              "value": "={{ $json.query.after_ts || null }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "fae2c275-8da5-490f-a7be-5fb7497035e4",
+      "name": "Normalizar"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a9ce95b0-5e64-4108-8046-4d721144bb10",
+              "leftValue": "={{ $json.user_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "fbe8ae3f-74bf-41eb-9f00-95943af44254",
+      "name": "Usuario existe?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4b504774-0b6e-41ea-b431-52c9f67a9dd4",
+              "name": "error",
+              "value": "missing_user_id",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        624,
+        96
+      ],
+      "id": "7004d52e-51f1-4665-bd0c-be1c864b8d56",
+      "name": "Erro"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1040,
+        96
+      ],
+      "id": "79830f6c-a237-4e93-b5b7-bcf6a82b6c45",
+      "name": "Respond to Webhook - erro"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseKey": ""
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1040,
+        -96
+      ],
+      "id": "734a9dcb-0bfa-4207-b88f-0713b02a3871",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "09c4f9c9-133f-4829-a61a-ccf68e89f116",
+              "name": "messages",
+              "value": "={{ $items(\"Selecionar mensagem\").map(i => i.json) }}",
+              "type": "array"
+            },
+            {
+              "id": "2eb8d776-850f-402c-9416-70823576e4ae",
+              "name": "next_after_ts",
+              "value": "={{ \n  $items(\"Selecionar mensagem\").length\n    ? $items(\"Selecionar mensagem\")[$items(\"Selecionar mensagem\").length - 1].json.created_at\n    : ($('Normalizar').item.json.after_ts || null)\n}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        -96
+      ],
+      "id": "3767c699-fe28-4e15-8b1e-af9f54c2e1f4",
+      "name": "Set message"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id, user_id, direction, content, created_at\nfrom public.messages\nwhere user_id = $1\n  and (\n    nullif($2::text, 'null') is null\n    or created_at > nullif($2::text, 'null')::timestamptz\n  )\norder by created_at asc\nlimit 200;",
+        "options": {
+          "queryReplacement": "={{ $('Normalizar').item.json.user_id }}, {{ $('Normalizar').item.json.after_ts || null }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        624,
+        -96
+      ],
+      "id": "73c072f6-5b0e-4fb5-8ac8-1ef03eb778bb",
+      "name": "Selecionar mensagem",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "KgoCf6R9p3ug2Zek",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "accept-language": "*",
+            "sec-fetch-mode": "cors",
+            "user-agent": "node",
+            "accept-encoding": "gzip, deflate"
+          },
+          "params": {},
+          "query": {
+            "user_id": "d30db0e0-a938-4e61-9a96-842bc9733b6c"
+          },
+          "body": {},
+          "webhookUrl": "http://localhost:5678/webhook/get-messages",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Usuario existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usuario existe?": {
+      "main": [
+        [
+          {
+            "node": "Selecionar mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erro": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook - erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set message": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecionar mensagem": {
+      "main": [
+        [
+          {
+            "node": "Set message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "170905ce-bb42-4833-816d-f98cf4556b0d",
+  "meta": {
+    "instanceId": "2242d851dc1cc955076f269156dad02e32d76bd72bd325d8e12fdcc06350a6c8"
+  },
+  "id": "QW2zaIUjR5-7cyglQHV6P",
+  "tags": []
+}

@@ -1,0 +1,180 @@
+{
+  "name": "/api/v1/agendamentos [GET]",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "/api/v1/agendamentos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d296e084-7c59-4b9d-a509-84de8b31d24d",
+      "name": "Webhook",
+      "webhookId": "08e2f3f5-6a1f-4545-8e76-d290bde89243"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list",
+          "cachedResultName": "appointments"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "user_id",
+              "value": "={{ $('Webhook').item.json.body.user_id }}"
+            },
+            {
+              "column": "status",
+              "value": "pendente"
+            }
+          ]
+        },
+        "sort": {
+          "values": [
+            {
+              "column": "scheduled_for"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        0
+      ],
+      "id": "ee8b38d9-6675-43e7-b85f-0386ffa6e1e0",
+      "name": "Select agendamentos",
+      "credentials": {
+        "postgres": {
+          "id": "KgoCf6R9p3ug2Zek",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        624,
+        0
+      ],
+      "id": "543cfc87-8d16-4c35-8ab6-884c6d98b012",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input esperado (POST /api/v1/agendamentos):\n// {\n//   user_id: \"...\",\n//   reply: \"prefixo que deve aparecer antes da lista\"\n// }\n\n// 1) prefixo vindo do /chat (se não vier, usa um padrão)\nconst prefix =\n  ($node[\"Webhook\"].json.reply && String($node[\"Webhook\"].json.reply).trim()) ||\n  \"Vou te passar a lista dos seus agendamentos pendentes. Me diga o número do que você se refere:\";\n\n// 2) rows do Postgres: dependendo do node, pode vir como 1 item por linha (mais comum) ou um array.\n// A forma mais robusta: considerar que cada item = uma linha.\nconst rows = items.map((i) => i.json);\n\n// 3) se não tiver agendamentos\nif (!rows.length) {\n  return [\n    {\n      json: {\n        ok: true,\n        reply: `${prefix}\\n\\nNenhum agendamento pendente encontrado.`,\n        appointments: [],\n      },\n    },\n  ];\n}\n\n// 4) formatar data em pt-BR no fuso de SP\nfunction formatDatePtBR(iso) {\n  try {\n    const d = new Date(iso);\n    return new Intl.DateTimeFormat(\"pt-BR\", {\n      timeZone: \"America/Sao_Paulo\",\n      day: \"2-digit\",\n      month: \"2-digit\",\n      year: \"numeric\",\n      hour: \"2-digit\",\n      minute: \"2-digit\",\n      hour12: false,\n    }).format(d);\n  } catch (e) {\n    return iso;\n  }\n}\n\n// 5) montar lista enumerada + payload para o /chat\nconst lines = rows.map((a, idx) => {\n  const title = (a.title && String(a.title).trim()) || \"sem título\";\n  const when = a.scheduled_for ? formatDatePtBR(a.scheduled_for) : \"\";\n  return `${idx + 1}) ${title}${when ? \" - \" + when : \"\"}`;\n});\n\nconst replyText = `${prefix}\\n${lines.join(\"\\n\")}`;\n\n// Opcional: devolver também o “mapa” índice → id, para o /chat resolver \"cancelar o 2\"\nconst index_map = rows.map((a, idx) => ({\n  index: idx + 1,\n  id: a.id,\n  title: a.title ?? null,\n  scheduled_for: a.scheduled_for ?? null,\n  status: a.status ?? null,\n}));\n\nreturn [\n  {\n    json: {\n      ok: true,\n      reply: replyText,\n      appointments: index_map,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "60ed0f0f-1d84-4584-b84c-56d63ec64b78",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "content-type": "application/json",
+            "user-agent": "axios/1.12.0",
+            "content-length": "72",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "host": "localhost:5678",
+            "connection": "close"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "user_id": "d30db0e0-a938-4e61-9a96-842bc9733b6c",
+            "source": "chat | api"
+          },
+          "webhookUrl": "http://localhost:5678/webhook/api/v1/agendamentos",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Select agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3aff9b4a-6a63-4ea6-9bcf-3de9004b3154",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2242d851dc1cc955076f269156dad02e32d76bd72bd325d8e12fdcc06350a6c8"
+  },
+  "id": "ZkFUY3Ntf3VefXWrUiOAC",
+  "tags": []
+}

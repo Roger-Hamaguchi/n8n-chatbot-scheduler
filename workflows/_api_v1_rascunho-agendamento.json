@@ -1,0 +1,231 @@
+{
+  "name": "/api/v1/rascunho-agendamento",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/api/v1/rascunho-agendamento",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        96
+      ],
+      "id": "26b269e7-e8d9-461a-b368-3ff1ac8c3e53",
+      "name": "Webhook",
+      "webhookId": "f3678879-ea70-4986-884e-5ae359f1d6fc"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointment_drafts",
+          "mode": "list",
+          "cachedResultName": "appointment_drafts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Normalizar entrada').item.json.user_id }}",
+            "payload": "={\n  \"scheduled_for\": \"{{ $('Normalizar entrada').item.json.scheduled_for }}\",\n  \"title\": \"{{ $('Normalizar entrada').item.json.title }}\",\n  \"description\": \"{{ $('Normalizar entrada').item.json.description }}\"\n}\n"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        144,
+        96
+      ],
+      "id": "e5a06ba9-0d25-464f-92f5-554137491c50",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "4HjXaFHkSvAt0BXl",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        560,
+        96
+      ],
+      "id": "bd3bc8ae-0741-4ad0-8ee7-596c70296e55",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\n\n// Captura os dados\nconst user_id = body.user_id;\n\n// aceita vários nomes\nconst rawDate =\n  body.datetime_iso ||\n  body.datetime_text ||\n  body.datetime_hint;\n\nconst titleRaw = body.title;\nconst descriptionRaw = body.description;\n\nif (!user_id || !rawDate) {\n  throw new Error(\"user_id e data são obrigatórios\");\n}\n\nlet finalDateISO;\n\nfunction nextWeekdayAt(hour, minute, weekdayIndex, tzOffset = \"-03:00\") {\n  // weekdayIndex: 0=domingo ... 6=sábado\n  const now = new Date();\n  const d = new Date(now);\n  d.setSeconds(0, 0);\n\n  const today = d.getDay();\n  let delta = (weekdayIndex - today + 7) % 7;\n\n  if (delta === 0) {\n    // se for hoje e já passou da hora, joga pra próxima semana\n    const nowMinutes = d.getHours() * 60 + d.getMinutes();\n    const targetMinutes = hour * 60 + minute;\n    if (targetMinutes <= nowMinutes) delta = 7;\n  }\n\n  d.setDate(d.getDate() + delta);\n  d.setHours(hour, minute, 0, 0);\n\n  const yyyy = d.getFullYear();\n  const mm = String(d.getMonth() + 1).padStart(2, \"0\");\n  const dd = String(d.getDate()).padStart(2, \"0\");\n  const HH = String(d.getHours()).padStart(2, \"0\");\n  const MM = String(d.getMinutes()).padStart(2, \"0\");\n\n  return `${yyyy}-${mm}-${dd}T${HH}:${MM}:00${tzOffset}`;\n}\n\nfunction parseHint(raw) {\n  const s = String(raw).toLowerCase().trim();\n\n  // hora: \"15h\", \"15h30\", \"15:30\"\n  const m =\n    s.match(/(\\d{1,2})\\s*h\\s*(\\d{1,2})?/) ||\n    s.match(/(\\d{1,2})\\s*:\\s*(\\d{1,2})/);\n\n  if (!m) return null;\n\n  const hour = Number(m[1]);\n  const minute = Number(m[2] ?? 0);\n  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;\n\n  const weekdays = {\n    \"domingo\": 0,\n    \"segunda\": 1,\n    \"segunda-feira\": 1,\n    \"terca\": 2,\n    \"terça\": 2,\n    \"terça-feira\": 2,\n    \"quarta\": 3,\n    \"quarta-feira\": 3,\n    \"quinta\": 4,\n    \"quinta-feira\": 4,\n    \"sexta\": 5,\n    \"sexta-feira\": 5,\n    \"sabado\": 6,\n    \"sábado\": 6,\n    \"sábado-feira\": 6,\n  };\n\n  let wd = null;\n  for (const key of Object.keys(weekdays)) {\n    if (s.includes(key)) {\n      wd = weekdays[key];\n      break;\n    }\n  }\n\n  if (wd === null) return null;\n\n  return nextWeekdayAt(hour, minute, wd);\n}\n\n// 1) \"dd/mm/aaaa hh:mm\"\nif (typeof rawDate === \"string\" && rawDate.includes(\"/\")) {\n  const [datePart, timePart] = rawDate.split(\" \");\n  const [day, month, year] = datePart.split(\"/\");\n  const time = (timePart || \"00:00\").trim();\n  finalDateISO = `${year}-${month}-${day}T${time}:00-03:00`;\n} else {\n  // 2) tenta hint tipo \"quarta às 15h\"\n  const hinted = parseHint(rawDate);\n  if (hinted) {\n    finalDateISO = hinted;\n  } else {\n    // 3) tenta ISO / formatos parseáveis pelo JS\n    const dateObj = new Date(rawDate);\n    if (isNaN(dateObj.getTime())) {\n      throw new Error(\"Formato de data inválido\");\n    }\n    finalDateISO = dateObj.toISOString();\n  }\n}\n\nconst title =\n  typeof titleRaw === \"string\" && titleRaw.trim()\n    ? titleRaw.trim()\n    : \"Conversa\";\n\nconst description =\n  typeof descriptionRaw === \"string\" && descriptionRaw.trim()\n    ? descriptionRaw.trim()\n    : null;\n\nreturn [\n  {\n    user_id,\n    scheduled_for: finalDateISO,\n    title,\n    description,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        96
+      ],
+      "id": "1f6ce024-52c2-4082-a6b2-1fdbd8e7661b",
+      "name": "Normalizar entrada"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "348afeca-8dd1-4e8b-bee5-175d379f05be",
+              "name": "reply",
+              "value": "={{ $('Webhook').item.json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        96
+      ],
+      "id": "4764ee80-fe95-459e-ba1d-1e6aad418e12",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "content-type": "application/json",
+            "user-agent": "axios/1.12.0",
+            "content-length": "234",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "host": "localhost:5678",
+            "connection": "close"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "user_id": "a3fcee92-7e00-4a2f-8f2f-d93539a922c5",
+            "datetime_iso": null,
+            "title": "aula de judo",
+            "description": null,
+            "source": "chat | api",
+            "message": "Você quer agendar 'aula de judo' para quarta às 15h. Responda apenas com Sim ou Não.",
+            "datetime_hint": "quarta às 15h"
+          },
+          "webhookUrl": "http://localhost:5678/webhook/api/v1/rascunho-agendamento",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar entrada": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d5937e7b-41ca-4364-8bd2-c0b7b4b069fb",
+  "meta": {
+    "instanceId": "6dbbaa0426b3cc8e214d0c256d61a8fe90469867a2e968d3adf53877f3e88124"
+  },
+  "id": "yy6sgwUgHLI3X5zFUpuRS",
+  "tags": []
+}

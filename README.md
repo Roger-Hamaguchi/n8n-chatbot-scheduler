@@ -1,0 +1,350 @@
+# Chatbot com Agendamento e Bloqueio – n8n
+
+## Visão Geral
+
+Este projeto implementa um chatbot backend-first utilizando o n8n como orquestrador central, com foco em clareza arquitetural, regras explícitas e controle determinístico do fluxo.
+
+O sistema foi desenvolvido como solução para um desafio técnico, priorizando previsibilidade, separação de responsabilidades e aderência rigorosa às regras de negócio propostas.
+
+Funcionalidades principais:
+- Conversação via LLM (interpretação de linguagem apenas)
+- Criação, consulta, atualização e cancelamento de agendamentos
+- Confirmação explícita antes de qualquer ação crítica
+- Bloqueio e desbloqueio de usuários
+- Lembretes automáticos por inatividade (timeout de 15 minutos)
+- Supressão automática após o segundo lembrete
+- Persistência explícita de mensagens para polling do frontend
+
+O frontend é uma interface simples de chat em React, usada exclusivamente para validação funcional da integração com o backend.
+
+---
+
+## Stack Utilizada
+
+- Orquestração / Backend: n8n (self-hosted)
+- Banco de Dados: PostgreSQL
+- LLM: OpenAI (API)
+- Frontend: Chat simples em React
+- Infra local: Docker + Docker Compose
+
+---
+
+## Arquitetura Geral
+
+Princípios adotados:
+
+- Existe um único fluxo principal que conversa com o usuário.
+- Fluxos auxiliares funcionam como serviços determinísticos.
+- O LLM não controla fluxo nem estado, apenas interpreta linguagem.
+- Regras de negócio, estado e persistência ficam fora do modelo.
+- Toda ação crítica exige confirmação explícita.
+- Mensagens exibidas ao usuário são persistidas de forma explícita.
+- O sistema evita dependência excessiva de “memória implícita” da LLM.
+
+---
+
+## Fluxos no n8n
+
+### Fluxo Principal – /chat
+
+Responsável por:
+
+- Receber mensagens do frontend via webhook.
+- Criar ou buscar o usuário pelo email.
+- Persistir a mensagem do usuário.
+- Verificar se o usuário está bloqueado.
+- Injetar contexto auxiliar (ex.: existência de rascunho).
+- Acionar o AI Agent (LLM com memória persistente).
+- Classificar intenção via parser determinístico.
+- Orquestrar ações conforme o intent retornado:
+  - Conversa simples
+  - Criação de rascunho de agendamento
+  - Confirmação de criação
+  - Atualização ou cancelamento de agendamentos
+  - Bloqueio de usuário
+- Persistir a resposta final do bot.
+- Retornar a resposta ao frontend.
+
+Este é o único fluxo que responde diretamente ao usuário.
+
+---
+
+## Fluxos Auxiliares (Serviços)
+
+Esses fluxos não conversam com o usuário. Executam apenas lógica de negócio.
+
+- /api/v1/rascunho-agendamento  
+  - Cria ou atualiza um rascunho de agendamento  
+  - Não cria o agendamento definitivo  
+
+- /api/v1/agendamento (POST | PUT | DELETE)  
+  - Confirma criação de agendamento a partir de rascunho  
+  - Atualiza ou cancela agendamentos existentes  
+  - Retorna o registro atualizado  
+
+- /api/v1/agendamentos (GET)  
+  - Lista agendamentos do usuário  
+  - Usado como fonte da verdade para leitura  
+
+- /api/v1/bloqueio  
+  - Bloqueia o usuário (is_blocked = true)  
+
+- /api/v1/desbloqueio  
+  - Desbloqueia o usuário  
+
+- reminder.worker  
+  - Executado via cron  
+  - Envia lembretes após inatividade do usuário  
+
+Esses fluxos são chamados exclusivamente pelo fluxo principal ou pelo cron.
+
+---
+
+## Regras de Negócio
+
+### Usuário
+
+- Email é único.
+- Usuário pode ser bloqueado.
+- Usuário bloqueado:
+  - Não chega à LLM.
+  - Recebe resposta padrão imediata.
+- O desbloqueio é feito via endpoint dedicado, acionado pelo frontend.
+
+---
+
+### Agendamentos
+
+- Toda criação exige confirmação explícita.
+- O usuário nunca manipula diretamente IDs internos.
+
+Fluxo de criação:
+1. Usuário informa dados
+2. Criação de rascunho
+3. Solicitação de confirmação
+4. Usuário responde “sim” ou “não”
+5. Criação definitiva ou descarte do rascunho
+
+Fluxo de atualização:
+- Listagem dos agendamentos do usuário
+- Seleção por índice/contexto conversacional
+- Coleta das alterações
+- Apresentação de antes/depois
+- Confirmação explícita
+- Atualização do registro
+
+Fluxo de cancelamento:
+- Seleção
+- Confirmação explícita
+- Cancelamento lógico
+
+Campos obrigatórios:
+- Data e hora
+- Título
+
+Status possíveis:
+- pendente
+- cancelado
+- realizado
+
+---
+
+### Lembretes por Inatividade
+
+- Após 15 minutos sem resposta do usuário, um lembrete é enviado.
+- Máximo de 2 lembretes automáticos.
+- Após o segundo lembrete sem resposta:
+  - O sistema suprime novas mensagens automáticas.
+- O controle é feito via tabela dedicada de estado (reminder_state).
+
+---
+
+## Persistência de Mensagens e Polling
+
+As mensagens exibidas no frontend são persistidas explicitamente na tabela messages.
+
+Campos principais:
+- user_id
+- direction (user | bot | system)
+- content
+- created_at
+
+O frontend utiliza polling via webhook para buscar novas mensagens, com uso de cursor temporal.
+
+Webhook:
+- GET /get-messages
+
+Funcionamento:
+- Primeira chamada retorna histórico completo e um cursor (after_ts).
+- Chamadas subsequentes retornam apenas mensagens posteriores ao cursor.
+- Caso não haja novas mensagens, a lista retornada é vazia.
+- Mensagens dos tipos user, bot e system são retornadas e renderizadas.
+
+Essa abordagem foi adotada para manter simplicidade e evitar dependência de WebSockets.
+
+---
+
+## Identidade do Usuário (user_id)
+
+- O user_id é gerado exclusivamente pelo backend.
+- O fluxo /chat cria ou recupera o usuário e retorna seu user_id na resposta.
+- O frontend nunca gera UUIDs.
+- O frontend persiste o user_id em localStorage após a primeira resposta.
+- Em reloads ou novas mensagens, o user_id persistido é reutilizado.
+- O polling e a leitura de mensagens dependem exclusivamente desse user_id.
+
+Essa decisão garante isolamento correto entre usuários e evita mistura de conversas.
+
+---
+
+## Modelagem de Dados
+
+### users
+- id
+- name
+- email
+- is_blocked
+- created_at
+- updated_at
+
+### appointment_drafts
+- user_id
+- payload
+- created_at
+
+### appointments
+- id
+- user_id
+- title
+- description
+- scheduled_for
+- status
+- created_at
+- updated_at
+
+### reminder_state
+- user_id
+- last_bot_message_at
+- last_user_message_at
+- reminder_count
+- is_suppressed
+- updated_at
+
+---
+
+## Memória Conversacional
+
+- Gerenciada automaticamente pelo n8n.
+- Tabela utilizada: n8n_chat_histories
+- Não faz parte do domínio da aplicação.
+- Usada apenas como contexto interno para o AI Agent.
+
+---
+
+## Comunicação Frontend ↔ Backend
+
+### Envio de mensagem
+POST /chat
+
+Payload:
+- name
+- email
+- message
+
+Resposta:
+- reply
+- user_id
+
+---
+
+### Leitura de mensagens
+GET /get-messages
+
+Parâmetros:
+- user_id
+- after_ts (opcional)
+
+---
+
+## Execução Local
+
+Pré-requisitos:
+- Docker Desktop
+- Node.js (opcional, apenas para o frontend)
+
+Subir o ambiente:
+docker compose up -d
+
+Após subir, acesse o n8n em:
+http://localhost:5678
+
+Na primeira execução:
+- Crie um usuário administrador no n8n (dados de teste são suficientes).
+- O dashboard iniciará vazio.
+
+---
+
+## Configuração de Credenciais no n8n
+
+Após acessar o painel do n8n, é necessário configurar manualmente:
+
+- Credencial PostgreSQL
+  - Host: postgres
+  - Database: chatbot
+  - User: chatbot
+  - Password: chatbot
+  - Port: 5432
+
+- Credencial OpenAI
+  - Informar sua API Key válida
+
+Essas credenciais devem ser associadas aos nós correspondentes nos workflows importados.
+
+---
+
+## Diferenciais (Bônus)
+
+### Prevenção de Prompt Injection
+
+O sistema adota uma abordagem arquitetural para mitigação de prompt injection:
+
+- O LLM não possui acesso direto ao banco, estado ou ações.
+- O modelo não executa comandos nem altera fluxo.
+- Todas as ações passam por validação determinística e confirmação explícita.
+- Tentativas de manipulação do prompt não produzem efeitos colaterais.
+
+Essa estratégia reduz riscos sem depender de filtros frágeis ou heurísticas de texto.
+
+---
+
+### Exposição de API Externa
+
+Todas as operações de agendamento e bloqueio são expostas via endpoints HTTP independentes do frontend.
+
+Os endpoints podem ser consumidos diretamente por:
+- Postman
+- curl
+- Outros backends
+
+O frontend atua apenas como cliente de teste, não sendo requisito para uso da API.
+
+---
+
+## Observações Importantes
+
+- O frontend não é avaliado por UI/UX.
+- O projeto prioriza clareza, previsibilidade e baixo acoplamento.
+- IDs internos não são expostos no fluxo conversacional por decisão arquitetural consciente.
+- O sistema foi projetado para rodar integralmente a partir do docker-compose.yml.
+
+---
+
+## Decisões Arquiteturais
+
+- Um único fluxo conversa com o usuário.
+- Serviços auxiliares são determinísticos.
+- Estado crítico vive no banco de dados.
+- O LLM interpreta linguagem, não decide regras.
+- Confirmações explícitas evitam efeitos colaterais.
+- Polling foi escolhido por simplicidade e confiabilidade.
+- As decisões refletem cenários reais de chatbots conversacionais.
