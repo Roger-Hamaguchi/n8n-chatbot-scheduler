@@ -5,6 +5,7 @@ import { api } from '../services/api';
 export const useChat = (user: User) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isBotTyping, setIsBotTyping] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [historyLoaded, setHistoryLoaded] = useState(false);
 
@@ -102,6 +103,10 @@ export const useChat = (user: User) => {
 
                         if (uniqueNew.length > 0) {
                             console.log('New messages received:', uniqueNew);
+                            // If any new message is from bot, stop typing simulation
+                            if (uniqueNew.some(m => m.sender === 'bot')) {
+                                setIsBotTyping(false);
+                            }
                             return [...updatedMessages, ...uniqueNew];
                         }
 
@@ -158,15 +163,21 @@ export const useChat = (user: User) => {
     const sendMessage = useCallback(async (text: string) => {
         if (!text.trim()) return;
 
-        // REMOVED: Optimistic UI to fix duplication issue
-        // Messages will appear via polling after backend saves them
-        // This adds ~5 second delay but eliminates duplicates
-
-        // Local feedback for typed commands (but request proceeds to chat webhook)
         const lowerText = text.trim().toLowerCase();
+
+        // RE-INTRODUCED: Optimistic UI for immediate feedback
+        // Uses 'temp-' prefix for deduplication logic in pollMessages
+        const tempMsg: Message = {
+            id: `temp-${Date.now()}`,
+            text: text.trim(),
+            sender: 'user',
+            timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, tempMsg]);
+
         if (lowerText === 'bloquear') {
             const sysMsg: Message = {
-                id: `temp-${Date.now()}`,
+                id: `temp-sys-${Date.now()}`,
                 text: '🔒 Solicitação de bloqueio enviada.',
                 sender: 'bot',
                 timestamp: Date.now(),
@@ -175,6 +186,7 @@ export const useChat = (user: User) => {
         }
 
         setLoading(true);
+        setIsBotTyping(true); // Start bot typing simulation
         setError(null);
 
         try {
@@ -199,6 +211,7 @@ export const useChat = (user: User) => {
             };
             setMessages((prev) => [...prev, errorMsg]);
             setError('Falha na comunicação com o servidor.');
+            setIsBotTyping(false); // Reset typing if send fails
         } finally {
             setLoading(false);
         }
@@ -214,6 +227,7 @@ export const useChat = (user: User) => {
         sendMessage,
         sendAdminCommand,
         loading,
+        isBotTyping,
         error,
         clearChat
     };

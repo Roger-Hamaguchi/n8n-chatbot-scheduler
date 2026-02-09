@@ -21,11 +21,13 @@ O frontend é uma interface simples de chat em React, usada exclusivamente para 
 
 ## Stack Utilizada
 
-- Orquestração / Backend: n8n (self-hosted)
-- Banco de Dados: PostgreSQL
+- Orquestração / Backend: n8n (Cloud)
+- Banco de Dados: PostgreSQL (Supabase)
 - LLM: OpenAI (API)
-- Frontend: Chat simples em React
-- Infra local: Docker + Docker Compose
+- Frontend: Chat simples em React (Vite)
+- Infraestrutura:
+  - Desenvolvimento: Docker + Docker Compose
+  - Produção: n8n Cloud + Supabase + Vercel
 
 ---
 
@@ -39,7 +41,7 @@ Princípios adotados:
 - Regras de negócio, estado e persistência ficam fora do modelo.
 - Toda ação crítica exige confirmação explícita.
 - Mensagens exibidas ao usuário são persistidas de forma explícita.
-- O sistema evita dependência excessiva de “memória implícita” da LLM.
+- O sistema evita dependência excessiva de memória implícita da LLM.
 
 ---
 
@@ -73,28 +75,28 @@ Este é o único fluxo que responde diretamente ao usuário.
 
 Esses fluxos não conversam com o usuário. Executam apenas lógica de negócio.
 
-- /api/v1/rascunho-agendamento  
-  - Cria ou atualiza um rascunho de agendamento  
-  - Não cria o agendamento definitivo  
+- /api/v1/rascunho-agendamento
+  - Cria ou atualiza um rascunho de agendamento
+  - Não cria o agendamento definitivo
 
-- /api/v1/agendamento (POST | PUT | DELETE)  
-  - Confirma criação de agendamento a partir de rascunho  
-  - Atualiza ou cancela agendamentos existentes  
-  - Retorna o registro atualizado  
+- /api/v1/agendamento (POST | PUT | DELETE)
+  - Confirma criação de agendamento a partir de rascunho
+  - Atualiza ou cancela agendamentos existentes
+  - Retorna o registro atualizado
 
-- /api/v1/agendamentos (GET)  
-  - Lista agendamentos do usuário  
-  - Usado como fonte da verdade para leitura  
+- /api/v1/agendamentos (GET)
+  - Lista agendamentos do usuário
+  - Usado como fonte da verdade para leitura
 
-- /api/v1/bloqueio  
-  - Bloqueia o usuário (is_blocked = true)  
+- /api/v1/bloqueio
+  - Bloqueia o usuário (is_blocked = true)
 
-- /api/v1/desbloqueio  
-  - Desbloqueia o usuário  
+- /api/v1/desbloqueio
+  - Desbloqueia o usuário
 
-- reminder.worker  
-  - Executado via cron  
-  - Envia lembretes após inatividade do usuário  
+- reminder.worker
+  - Executado via cron
+  - Envia lembretes após inatividade do usuário
 
 Esses fluxos são chamados exclusivamente pelo fluxo principal ou pelo cron.
 
@@ -266,14 +268,14 @@ Parâmetros:
 
 ---
 
-## Execução Local
+## Execução Local (Desenvolvimento)
 
 Pré-requisitos:
 - Docker Desktop
 - Node.js (opcional, apenas para o frontend)
 
-Subir o ambiente:
-docker compose up -d
+Subir o ambiente local:
+docker compose -f docker-compose.dev.yml up -d
 
 Após subir, acesse o n8n em:
 http://localhost:5678
@@ -284,9 +286,21 @@ Na primeira execução:
 
 ---
 
+## Execução em Produção
+
+O backend do projeto está implantado no n8n Cloud e o frontend é publicado na Vercel.
+
+Configuração necessária no frontend (Vercel):
+- Variável de ambiente:
+  - VITE_API_URL=https://automacaoai.app.n8n.cloud
+
+O frontend consome diretamente os webhooks de produção do n8n Cloud.
+
+---
+
 ## Configuração de Credenciais no n8n
 
-Após acessar o painel do n8n, é necessário configurar manualmente:
+### Desenvolvimento (Docker)
 
 - Credencial PostgreSQL
   - Host: postgres
@@ -298,7 +312,20 @@ Após acessar o painel do n8n, é necessário configurar manualmente:
 - Credencial OpenAI
   - Informar sua API Key válida
 
-Essas credenciais devem ser associadas aos nós correspondentes nos workflows importados.
+---
+
+### Produção (n8n Cloud + Supabase)
+
+- Credencial PostgreSQL (Session Pooler)
+  - Host: pooler.supabase.com
+  - Database: postgres
+  - User: postgres.<project_ref>
+  - Password: senha do banco
+  - Port: 5432
+  - SSL: true
+
+- Credencial OpenAI
+  - Informar sua API Key válida
 
 ---
 
@@ -335,7 +362,8 @@ O frontend atua apenas como cliente de teste, não sendo requisito para uso da A
 - O frontend não é avaliado por UI/UX.
 - O projeto prioriza clareza, previsibilidade e baixo acoplamento.
 - IDs internos não são expostos no fluxo conversacional por decisão arquitetural consciente.
-- O sistema foi projetado para rodar integralmente a partir do docker-compose.yml.
+- O ambiente Docker é destinado exclusivamente ao desenvolvimento local.
+- Em produção, o sistema roda em n8n Cloud + Supabase + Vercel.
 
 ---
 

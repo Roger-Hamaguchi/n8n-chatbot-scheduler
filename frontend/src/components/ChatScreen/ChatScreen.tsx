@@ -12,7 +12,7 @@ interface ChatScreenProps {
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({ user, onLogout }) => {
-    const { messages, sendMessage, sendAdminCommand, loading, error } = useChat(user);
+    const { messages, sendMessage, sendAdminCommand, loading, isBotTyping, error } = useChat(user);
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
@@ -42,7 +42,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ user, onLogout }) => {
                 </div>
             )}
 
-            <MessageList messages={messages} userName={user.name} isTyping={loading} />
+            <MessageList messages={messages} userName={user.name} isTyping={isBotTyping} />
 
             <AdminControls onAction={sendAdminCommand} />
 

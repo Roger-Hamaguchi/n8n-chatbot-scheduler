@@ -876,7 +876,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Captura a string de saída do AI Agent\nconst rawOutput = $json.output;\n\ntry {\n  // Converte a string de texto para um objeto JSON real\n  const parsedOutput = JSON.parse(rawOutput);\n\n  // Retorna o objeto formatado para o n8n\n  return [{\n    ...parsedOutput\n  }];\n} catch (error) {\n  // Caso a IA falhe e não envie um JSON válido, retorna o erro e o texto original\n  return [{\n    ok: false,\n    error: \"Falha ao processar JSON\",\n    original_text: rawOutput\n  }];\n}"
+        "jsCode": "// Captura a saída do AI Agent\nlet rawOutput = $json.output;\n\n// 1. Limpeza de Markdown (caso a IA envie a resposta entre ```json ... ```)\nif (rawOutput.includes('```')) {\n  rawOutput = rawOutput.replace(/```json/g, '').replace(/```/g, '').trim();\n}\n\ntry {\n  // 2. Converte a string para objeto JSON\n  const parsed = JSON.parse(rawOutput);\n\n  // 3. Retorna o objeto limpo para o n8n\n  return [{\n    ...parsed,\n    ok: true\n  }];\n\n} catch (e) {\n  // 4. Fallback de segurança sem usar a chave proibida \"error\"\n  return [{\n    ok: false,\n    parse_errorMessage: e.message, // Nome alterado para evitar reserva do n8n\n    reply: \"Desculpa, tive um problema ao entender sua mensagem. Pode repetir?\",\n    raw_output: rawOutput\n  }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -2005,7 +2005,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "5ab6195b-2fb8-4af1-ac13-86b84ed5f454",
+  "versionId": "3e3e1b93-0c1e-4c2f-964f-4455206104f0",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "6dbbaa0426b3cc8e214d0c256d61a8fe90469867a2e968d3adf53877f3e88124"
