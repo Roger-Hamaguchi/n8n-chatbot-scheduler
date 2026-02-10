@@ -75,28 +75,28 @@ Este é o único fluxo que responde diretamente ao usuário.
 
 Esses fluxos não conversam com o usuário. Executam apenas lógica de negócio.
 
-- /api/v1/rascunho-agendamento  
-  - Cria ou atualiza um rascunho de agendamento  
-  - Não cria o agendamento definitivo  
+- /api/v1/rascunho-agendamento
+  - Cria ou atualiza um rascunho de agendamento
+  - Não cria o agendamento definitivo
 
-- /api/v1/agendamento (POST | PUT | DELETE)  
-  - Confirma criação de agendamento a partir de rascunho  
-  - Atualiza ou cancela agendamentos existentes  
-  - Retorna o registro atualizado  
+- /api/v1/agendamento (POST | PUT | DELETE)
+  - Confirma criação de agendamento a partir de rascunho
+  - Atualiza ou cancela agendamentos existentes
+  - Retorna o registro atualizado
 
-- /api/v1/agendamentos (GET)  
-  - Lista agendamentos do usuário  
-  - Usado como fonte da verdade para leitura  
+- /api/v1/agendamentos (GET)
+  - Lista agendamentos do usuário
+  - Usado como fonte da verdade para leitura
 
-- /api/v1/bloqueio  
-  - Bloqueia o usuário (is_blocked = true)  
+- /api/v1/bloqueio
+  - Bloqueia o usuário (is_blocked = true)
 
-- /api/v1/desbloqueio  
-  - Desbloqueia o usuário  
+- /api/v1/desbloqueio
+  - Desbloqueia o usuário
 
-- reminder.worker  
-  - Executado via cron  
-  - Envia lembretes após inatividade do usuário  
+- reminder.worker
+  - Executado via cron
+  - Envia lembretes após inatividade do usuário
 
 Esses fluxos são chamados exclusivamente pelo fluxo principal ou pelo cron.
 
@@ -211,6 +211,8 @@ Essa decisão garante isolamento correto entre usuários e evita mistura de conv
 
 ## Modelagem de Dados
 
+O schema mínimo (Supabase) está em db/init.sql.
+
 ### users
 - id
 - name
@@ -234,6 +236,13 @@ Essa decisão garante isolamento correto entre usuários e evita mistura de conv
 - created_at
 - updated_at
 
+### messages
+- id
+- user_id
+- direction (user | bot | system)
+- content
+- created_at
+
 ### reminder_state
 - user_id
 - last_bot_message_at
@@ -250,6 +259,56 @@ Essa decisão garante isolamento correto entre usuários e evita mistura de conv
 - Tabela utilizada: n8n_chat_histories
 - Não faz parte do domínio da aplicação.
 - Usada apenas como contexto interno para o AI Agent.
+
+---
+
+## Documentação da API
+
+A API é exposta via Webhooks do n8n.
+
+Em produção (n8n Cloud), os endpoints seguem este padrão:
+- BASE_URL = https://automacaoai.app.n8n.cloud
+
+Endpoints principais:
+- POST /webhook/chat
+- GET  /webhook/get-messages
+- POST /webhook/api/v1/bloqueio
+- POST /webhook/api/v1/desbloqueio
+
+Endpoints internos (serviços) também são webhooks e são chamados pelo fluxo principal.
+
+Observação:
+- Para ver/editar os endpoints diretamente, acesse o painel do n8n e abra cada workflow. Os Webhooks ficam visíveis no node Webhook correspondente (Test/Production URL).
+
+---
+
+## Exemplos de Requests (curl)
+
+A seguir alguns exemplos práticos usando BASE_URL.
+
+Defina:
+- BASE_URL=https://automacaoai.app.n8n.cloud
+
+1) Enviar mensagem (chat)
+curl -X POST "$BASE_URL/webhook/chat" \
+  -H "Content-Type: application/json" \
+  -d '[{"name":"Teste","email":"teste@example.com","message":"Olá!"}]'
+
+2) Buscar mensagens (polling)
+curl "$BASE_URL/webhook/get-messages?user_id=SEU_USER_ID"
+
+3) Buscar mensagens a partir de um cursor
+curl "$BASE_URL/webhook/get-messages?user_id=SEU_USER_ID&after_ts=2026-02-09T00:00:00.000Z"
+
+4) Bloquear usuário
+curl -X POST "$BASE_URL/webhook/api/v1/bloqueio" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"teste@example.com"}'
+
+5) Desbloquear usuário
+curl -X POST "$BASE_URL/webhook/api/v1/desbloqueio" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"teste@example.com"}'
 
 ---
 
@@ -308,6 +367,18 @@ O frontend consome diretamente os webhooks de produção do n8n Cloud.
 
 ---
 
+## Configuração do Frontend (Vite)
+
+Em desenvolvimento local, o frontend pode usar proxy do Vite (vite.config.ts), permitindo chamadas relativas a /webhook sem necessidade de .env.
+
+Em produção (Vercel), o frontend utiliza a variável:
+- VITE_API_URL
+
+Um arquivo de exemplo está disponível em:
+- frontend/.env.example
+
+---
+
 ## Configuração de Credenciais no n8n
 
 ### Desenvolvimento (Docker)
@@ -327,7 +398,7 @@ O frontend consome diretamente os webhooks de produção do n8n Cloud.
 ### Produção (n8n Cloud + Supabase)
 
 - Credencial PostgreSQL (Session Pooler)
-  - Host: pooler.supabase.com
+  - Host: (session pooler do Supabase)
   - Database: postgres
   - User: postgres.<project_ref>
   - Password: senha do banco
@@ -336,6 +407,21 @@ O frontend consome diretamente os webhooks de produção do n8n Cloud.
 
 - Credencial OpenAI
   - Informar sua API Key válida
+
+---
+
+## Como configurar a API de LLM (OpenAI)
+
+O projeto utiliza a API da OpenAI via credencial no n8n.
+
+Passos (dev ou produção):
+1) Crie uma API Key na OpenAI.
+2) No n8n, crie uma credencial do tipo OpenAI.
+3) Associe essa credencial ao node do AI Agent no workflow principal (/chat).
+
+Observação:
+- A chave deve ser configurada apenas no n8n (não no frontend).
+- O frontend não armazena nem utiliza chave de LLM.
 
 ---
 
@@ -358,6 +444,7 @@ Todas as operações de agendamento e bloqueio são expostas via endpoints HTTP 
 
 Os endpoints podem ser consumidos diretamente por:
 - Postman
+- Insomnia
 - curl
 - Outros backends
 
