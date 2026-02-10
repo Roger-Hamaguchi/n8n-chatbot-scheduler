@@ -75,28 +75,28 @@ Este é o único fluxo que responde diretamente ao usuário.
 
 Esses fluxos não conversam com o usuário. Executam apenas lógica de negócio.
 
-- /api/v1/rascunho-agendamento
-  - Cria ou atualiza um rascunho de agendamento
-  - Não cria o agendamento definitivo
+- /api/v1/rascunho-agendamento  
+  - Cria ou atualiza um rascunho de agendamento  
+  - Não cria o agendamento definitivo  
 
-- /api/v1/agendamento (POST | PUT | DELETE)
-  - Confirma criação de agendamento a partir de rascunho
-  - Atualiza ou cancela agendamentos existentes
-  - Retorna o registro atualizado
+- /api/v1/agendamento (POST | PUT | DELETE)  
+  - Confirma criação de agendamento a partir de rascunho  
+  - Atualiza ou cancela agendamentos existentes  
+  - Retorna o registro atualizado  
 
-- /api/v1/agendamentos (GET)
-  - Lista agendamentos do usuário
-  - Usado como fonte da verdade para leitura
+- /api/v1/agendamentos (GET)  
+  - Lista agendamentos do usuário  
+  - Usado como fonte da verdade para leitura  
 
-- /api/v1/bloqueio
-  - Bloqueia o usuário (is_blocked = true)
+- /api/v1/bloqueio  
+  - Bloqueia o usuário (is_blocked = true)  
 
-- /api/v1/desbloqueio
-  - Desbloqueia o usuário
+- /api/v1/desbloqueio  
+  - Desbloqueia o usuário  
 
-- reminder.worker
-  - Executado via cron
-  - Envia lembretes após inatividade do usuário
+- reminder.worker  
+  - Executado via cron  
+  - Envia lembretes após inatividade do usuário  
 
 Esses fluxos são chamados exclusivamente pelo fluxo principal ou pelo cron.
 
@@ -158,6 +158,16 @@ Status possíveis:
 - Após o segundo lembrete sem resposta:
   - O sistema suprime novas mensagens automáticas.
 - O controle é feito via tabela dedicada de estado (reminder_state).
+
+### Observação sobre uso em produção
+
+O fluxo de lembretes por inatividade (reminder.worker) está implementado e funcional, porém pode permanecer desativado em produção.
+
+Motivo:
+- Em ambientes com n8n Cloud, especialmente no plano gratuito, execuções recorrentes via cron consomem créditos rapidamente.
+- Para evitar consumo desnecessário, recomenda-se ativar o reminder apenas quando houver necessidade real ou em ambientes com plano adequado.
+
+Essa decisão é intencional e faz parte da governança de custo do projeto.
 
 ---
 
@@ -339,8 +349,6 @@ O sistema adota uma abordagem arquitetural para mitigação de prompt injection:
 - O modelo não executa comandos nem altera fluxo.
 - Todas as ações passam por validação determinística e confirmação explícita.
 - Tentativas de manipulação do prompt não produzem efeitos colaterais.
-
-Essa estratégia reduz riscos sem depender de filtros frágeis ou heurísticas de texto.
 
 ---
 
