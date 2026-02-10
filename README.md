@@ -19,6 +19,15 @@ O frontend é uma interface simples de chat em React, usada exclusivamente para 
 
 ---
 
+Demo em Produção (Frontend)
+https://n8n-chatbot-scheduler.vercel.app  
+
+O frontend está hospedado na Vercel e se comunica diretamente com os webhooks
+do backend em produção (n8n Cloud).
+
+
+---
+
 ## Stack Utilizada
 
 - Orquestração / Backend: n8n (Cloud)
