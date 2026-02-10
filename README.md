@@ -275,37 +275,38 @@ Endpoints principais:
 - POST /webhook/api/v1/bloqueio
 - POST /webhook/api/v1/desbloqueio
 
-Endpoints internos (serviços) também são webhooks e são chamados pelo fluxo principal.
+### Observação sobre uso de IDs nos endpoints
 
-Observação:
-- Para ver/editar os endpoints diretamente, acesse o painel do n8n e abra cada workflow. Os Webhooks ficam visíveis no node Webhook correspondente (Test/Production URL).
+Embora o enunciado do desafio mencione endpoints REST no formato `/api/v1/agendamento/:id`, neste projeto os IDs internos de agendamentos não são expostos diretamente no path.
+
+Decisão arquitetural:
+- O frontend nunca manipula UUIDs de agendamentos.
+- A seleção de agendamentos é feita por índice (posição na lista) ou por contexto conversacional.
+- O backend resolve internamente o ID correto antes de executar ações de update ou delete.
+
+Essa abordagem é comum em sistemas conversacionais, reduz acoplamento com o cliente e evita erros por manipulação incorreta de identificadores técnicos.
 
 ---
 
 ## Exemplos de Requests (curl)
 
-A seguir alguns exemplos práticos usando BASE_URL.
-
 Defina:
 - BASE_URL=https://automacaoai.app.n8n.cloud
 
-1) Enviar mensagem (chat)
+1) Enviar mensagem
 curl -X POST "$BASE_URL/webhook/chat" \
   -H "Content-Type: application/json" \
   -d '[{"name":"Teste","email":"teste@example.com","message":"Olá!"}]'
 
-2) Buscar mensagens (polling)
+2) Buscar mensagens
 curl "$BASE_URL/webhook/get-messages?user_id=SEU_USER_ID"
 
-3) Buscar mensagens a partir de um cursor
-curl "$BASE_URL/webhook/get-messages?user_id=SEU_USER_ID&after_ts=2026-02-09T00:00:00.000Z"
-
-4) Bloquear usuário
+3) Bloquear usuário
 curl -X POST "$BASE_URL/webhook/api/v1/bloqueio" \
   -H "Content-Type: application/json" \
   -d '{"email":"teste@example.com"}'
 
-5) Desbloquear usuário
+4) Desbloquear usuário
 curl -X POST "$BASE_URL/webhook/api/v1/desbloqueio" \
   -H "Content-Type: application/json" \
   -d '{"email":"teste@example.com"}'
@@ -339,19 +340,11 @@ Parâmetros:
 
 ## Execução Local (Desenvolvimento)
 
-Pré-requisitos:
-- Docker Desktop
-- Node.js (opcional, apenas para o frontend)
-
 Subir o ambiente local:
 docker compose -f docker-compose.dev.yml up -d
 
-Após subir, acesse o n8n em:
+Após subir, acesse:
 http://localhost:5678
-
-Na primeira execução:
-- Crie um usuário administrador no n8n (dados de teste são suficientes).
-- O dashboard iniciará vazio.
 
 ---
 
@@ -360,10 +353,7 @@ Na primeira execução:
 O backend do projeto está implantado no n8n Cloud e o frontend é publicado na Vercel.
 
 Configuração necessária no frontend (Vercel):
-- Variável de ambiente:
-  - VITE_API_URL=https://automacaoai.app.n8n.cloud
-
-O frontend consome diretamente os webhooks de produção do n8n Cloud.
+- VITE_API_URL=https://automacaoai.app.n8n.cloud
 
 ---
 
@@ -398,7 +388,7 @@ Um arquivo de exemplo está disponível em:
 ### Produção (n8n Cloud + Supabase)
 
 - Credencial PostgreSQL (Session Pooler)
-  - Host: (session pooler do Supabase)
+  - Host: session pooler do Supabase
   - Database: postgres
   - User: postgres.<project_ref>
   - Password: senha do banco
@@ -414,13 +404,13 @@ Um arquivo de exemplo está disponível em:
 
 O projeto utiliza a API da OpenAI via credencial no n8n.
 
-Passos (dev ou produção):
+Passos:
 1) Crie uma API Key na OpenAI.
 2) No n8n, crie uma credencial do tipo OpenAI.
 3) Associe essa credencial ao node do AI Agent no workflow principal (/chat).
 
 Observação:
-- A chave deve ser configurada apenas no n8n (não no frontend).
+- A chave deve ser configurada apenas no n8n.
 - O frontend não armazena nem utiliza chave de LLM.
 
 ---
@@ -448,13 +438,12 @@ Os endpoints podem ser consumidos diretamente por:
 - curl
 - Outros backends
 
-O frontend atua apenas como cliente de teste, não sendo requisito para uso da API.
+O frontend atua apenas como cliente de teste.
 
 ---
 
 ## Observações Importantes
 
-- O frontend não é avaliado por UI/UX.
 - O projeto prioriza clareza, previsibilidade e baixo acoplamento.
 - IDs internos não são expostos no fluxo conversacional por decisão arquitetural consciente.
 - O ambiente Docker é destinado exclusivamente ao desenvolvimento local.
